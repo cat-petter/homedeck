@@ -32,18 +32,20 @@ export default function App() {
     return <FullScreenMessage>Loading…</FullScreenMessage>
   }
 
-  // First-run: force the setup wizard until an admin exists.
-  if (needsSetup) {
-    return (
-      <Routes>
-        <Route path="/setup" element={<Setup />} />
-        <Route path="*" element={<Navigate to="/setup" replace />} />
-      </Routes>
-    )
-  }
-
-  // Setup complete but not logged in -> login.
+  // Authenticated users go straight to the app — this also covers the moment
+  // right after the setup wizard logs the admin in, even though the initially
+  // fetched `needsSetup` flag is still stale-true.
   if (!user) {
+    // First-run: force the setup wizard until an admin exists.
+    if (needsSetup) {
+      return (
+        <Routes>
+          <Route path="/setup" element={<Setup />} />
+          <Route path="*" element={<Navigate to="/setup" replace />} />
+        </Routes>
+      )
+    }
+    // Setup complete but not logged in -> login.
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
