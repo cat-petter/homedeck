@@ -12,8 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import REPO_ROOT, get_settings
 from .db import init_db
-from .routers import auth, docker, metrics, storage, system
-from .services import metrics_service
+from .routers import auth, docker, health, metrics, storage, system
+from .services import health_service, metrics_service
 
 settings = get_settings()
 
@@ -25,10 +25,12 @@ FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 async def lifespan(app: FastAPI):
     init_db()
     metrics_service.start_collector()
+    health_service.start_scheduler()
     try:
         yield
     finally:
         await metrics_service.stop_collector()
+        await health_service.stop_scheduler()
 
 
 app = FastAPI(title="HomeDeck", version=__version__, lifespan=lifespan)
@@ -40,6 +42,7 @@ app.include_router(system.router)
 app.include_router(docker.router)
 app.include_router(metrics.router)
 app.include_router(storage.router)
+app.include_router(health.router)
 
 
 @app.get("/api/health", tags=["meta"])

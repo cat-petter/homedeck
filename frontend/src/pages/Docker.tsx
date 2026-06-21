@@ -98,7 +98,7 @@ export function Docker() {
         <p className="text-slate-500 dark:text-slate-400">No containers found.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table className="w-full min-w-[60rem] text-left text-sm">
+          <table className="w-full min-w-[44rem] text-left text-sm">
             <thead className="hidden bg-slate-50 text-xs uppercase tracking-wide text-slate-500 sm:table-header-group dark:bg-slate-900 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-2 font-medium">Container</th>
@@ -153,7 +153,7 @@ export function Docker() {
                       {running ? formatUptime(c.started_at) : c.state}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-nowrap items-center justify-end gap-1">
+                      <div className="ml-auto flex w-24 flex-col items-stretch gap-1">
                         {running ? (
                           <>
                             <ActionBtn onClick={() => doAction(c, 'stop')} busy={isBusy}>Stop</ActionBtn>

@@ -118,7 +118,16 @@ cd frontend && npm run dev -- --host 0.0.0.0       # 0.0.0.0:5173, proxies /api
    a `MetricSample` row every 15s with 24h retention for `GET /api/metrics/history`.
    Frontend `/system` page: live cards + dependency-free SVG `LineChart` (no chart
    lib) + per-container breakdown reusing the docker status WS.
-4. Health engine + quick-launch tiles.
+4. **Health engine + quick-launch tiles** ✅ — unified `Service` model is both a
+   monitored check and a launch tile (`check_type='none'` = launch-only). Engine
+   (`services/health_service.py`) is one scheduler loop (lifespan) running HTTP/
+   TCP/ICMP-`ping` checks per service interval, recording `ServiceCheckResult`
+   (7-day retention) + cached latest status; degraded = up-but-slow. Router
+   `routers/health.py`: service CRUD, `/check` (on-demand), `/history`, `ws`
+   (live status). ICMP uses the system `ping` binary (unprivileged). HTTP checks
+   default `verify_tls=false` (homelab self-signed). Frontend: `/health` page
+   (manage + latency/uptime history) and Dashboard quick-launch tiles, both off
+   the health WS (`useHealthStatus`).
 5. Docker app store: importer → normalization/dedup → config form → compose → deploy → manage → Hub fallback.
 6. APT app store: python-apt/AppStream browse → install/remove/upgrade with live output.
 7. Polish: dark/light, mobile, error states, sync summary UI, docs.

@@ -225,23 +225,7 @@ function ProcessBreakdown() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Top programs (host, by {sort === 'cpu' ? 'CPU' : 'memory'})
         </h2>
-        <div className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
-          {(['cpu', 'mem'] as ProcessSort[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSort(s)}
-              className={
-                'px-3 py-1 font-medium ' +
-                (sort === s
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800')
-              }
-            >
-              {s === 'cpu' ? 'CPU' : 'Memory'}
-            </button>
-          ))}
-        </div>
+        <SortToggle sort={sort} onChange={setSort} />
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -285,17 +269,25 @@ function ProcessBreakdown() {
 
 function ContainerBreakdown() {
   const { containers, stats } = useDockerStatus()
+  const [sort, setSort] = useState<ProcessSort>('cpu')
   const rows = (containers ?? [])
     .filter((c) => c.state === 'running')
     .map((c) => ({ c, st: stats[c.id] }))
-    .sort((a, b) => (b.st?.cpu_pct ?? 0) - (a.st?.cpu_pct ?? 0))
+    .sort((a, b) =>
+      sort === 'cpu'
+        ? (b.st?.cpu_pct ?? 0) - (a.st?.cpu_pct ?? 0)
+        : (b.st?.mem_used ?? 0) - (a.st?.mem_used ?? 0),
+    )
     .slice(0, 8)
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Per-container (top by CPU)
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Per-container (top by {sort === 'cpu' ? 'CPU' : 'memory'})
+        </h2>
+        <SortToggle sort={sort} onChange={setSort} />
+      </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
         <table className="w-full min-w-[32rem] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
@@ -332,6 +324,28 @@ function ContainerBreakdown() {
         </table>
       </div>
     </section>
+  )
+}
+
+function SortToggle({ sort, onChange }: { sort: ProcessSort; onChange: (s: ProcessSort) => void }) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
+      {(['cpu', 'mem'] as ProcessSort[]).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          className={
+            'px-3 py-1 font-medium ' +
+            (sort === s
+              ? 'bg-sky-600 text-white'
+              : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800')
+          }
+        >
+          {s === 'cpu' ? 'CPU' : 'Memory'}
+        </button>
+      ))}
+    </div>
   )
 }
 

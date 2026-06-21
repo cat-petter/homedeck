@@ -241,6 +241,45 @@ export interface DirBreakdown {
   truncated: boolean
 }
 
+// --- Health / services types ------------------------------------------------
+
+export type CheckType = 'none' | 'http' | 'tcp' | 'ping'
+export type HealthStatus = 'unknown' | 'up' | 'degraded' | 'down'
+
+export interface ServiceInput {
+  name: string
+  category: string
+  icon: string
+  lan_url: string
+  tailscale_url: string
+  check_type: CheckType
+  check_target: string
+  expected_status: string
+  interval_seconds: number
+  timeout_seconds: number
+  degraded_ms: number | null
+  verify_tls: boolean
+  enabled: boolean
+  sort_order: number
+}
+
+export interface ServiceData extends ServiceInput {
+  id: number
+  last_status: HealthStatus
+  last_checked_at: string | null
+  last_response_ms: number | null
+  last_error: string | null
+  uptime_24h: number | null
+}
+
+export interface ServiceHistory {
+  service_id: number
+  hours: number
+  uptime_pct: number | null
+  checks: number
+  samples: { ts: string; status: HealthStatus; response_ms: number | null; error: string | null }[]
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -292,5 +331,18 @@ export const api = {
     request<DirBreakdown>(
       `/api/storage/directories?path=${encodeURIComponent(path)}&limit=${limit}`,
     ),
+
+  // Health / services
+  listServices: () => request<ServiceData[]>('/api/health/services'),
+  createService: (body: ServiceInput) =>
+    request<ServiceData>('/api/health/services', { method: 'POST', body: JSON.stringify(body) }),
+  updateService: (id: number, body: ServiceInput) =>
+    request<ServiceData>(`/api/health/services/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteService: (id: number) =>
+    request<void>(`/api/health/services/${id}`, { method: 'DELETE' }),
+  checkService: (id: number) =>
+    request<ServiceData>(`/api/health/services/${id}/check`, { method: 'POST' }),
+  serviceHistory: (id: number, hours = 24) =>
+    request<ServiceHistory>(`/api/health/services/${id}/history?hours=${hours}`),
 }
 

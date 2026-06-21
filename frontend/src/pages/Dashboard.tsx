@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type SystemInfo } from '../lib/api'
+import { QuickLaunch } from '../components/QuickLaunch'
 
 const PHASES = [
-  { name: 'Health & uptime', desc: 'HTTP/TCP/ping checks + status', icon: '💓', phase: 4 },
-  { name: 'Quick-launch tiles', desc: 'App links with live status', icon: '🚀', phase: 4 },
   { name: 'Docker app store', desc: 'Catalogs, config forms & deploy', icon: '📦', phase: 5 },
   { name: 'APT app store', desc: 'Debian packages via apt/AppStream', icon: '🗃️', phase: 6 },
 ]
@@ -42,6 +41,8 @@ export function Dashboard() {
           {error}
         </div>
       )}
+
+      <QuickLaunch />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card title="Host">
