@@ -145,6 +145,57 @@ def compute_snapshot() -> dict[str, Any]:
     }
 
 
+# --- Per-program (process) breakdown ----------------------------------------
+
+def top_processes(limit: int = 10, sort: str = "cpu", interval: float = 0.35) -> list[dict[str, Any]]:
+    """Top host programs by CPU or memory, aggregated by process name.
+
+    CPU% requires two reads, so we prime cpu_percent() across all processes,
+    wait briefly, then read the delta. This is a blocking call (~`interval`s) and
+    must run in a threadpool (it does, since the route handler is sync `def`).
+    Processes are grouped by program name (all `python`, `chrome`, ... summed).
+    """
+    procs = list(psutil.process_iter(["name"]))
+    for p in procs:
+        try:
+            p.cpu_percent()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    time.sleep(interval)
+
+    ncpu = psutil.cpu_count(logical=True) or 1
+    total_mem = psutil.virtual_memory().total or 1
+    agg: dict[str, dict[str, Any]] = {}
+    for p in procs:
+        try:
+            cpu = p.cpu_percent()
+            rss = p.memory_info().rss
+            name = p.info.get("name") or f"pid:{p.pid}"
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+        row = agg.setdefault(name, {"name": name, "cpu": 0.0, "mem": 0, "count": 0})
+        row["cpu"] += cpu
+        row["mem"] += rss
+        row["count"] += 1
+
+    # Drop idle kernel threads / processes using no measurable resources.
+    rows = [r for r in agg.values() if r["cpu"] > 0 or r["mem"] > 0]
+    key = "mem" if sort == "mem" else "cpu"
+    rows.sort(key=lambda r: r[key], reverse=True)
+    return [
+        {
+            "name": r["name"],
+            # Normalize summed per-core CPU to a system-wide percentage.
+            "cpu_pct": round(r["cpu"] / ncpu, 2),
+            "mem_bytes": r["mem"],
+            "mem_pct": round(r["mem"] / total_mem * 100, 2),
+            "count": r["count"],
+        }
+        for r in rows[:limit]
+    ]
+
+
 # --- History persistence ----------------------------------------------------
 
 def _write_history(snapshot: dict[str, Any]) -> None:

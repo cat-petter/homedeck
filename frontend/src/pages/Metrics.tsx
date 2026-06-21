@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, api, type MetricSample, type MetricsSnapshot } from '../lib/api'
+import {
+  ApiError,
+  api,
+  type MetricSample,
+  type MetricsSnapshot,
+  type ProcessGroup,
+  type ProcessSort,
+} from '../lib/api'
 import { wsUrl } from '../lib/ws'
 import { formatBytes, formatDuration, formatPercent, formatRate } from '../lib/format'
 import { useDockerStatus } from '../lib/useDockerStatus'
@@ -185,8 +192,93 @@ export function Metrics() {
         </div>
       </section>
 
+      <ProcessBreakdown />
       <ContainerBreakdown />
     </div>
+  )
+}
+
+function ProcessBreakdown() {
+  const [sort, setSort] = useState<ProcessSort>('cpu')
+  const [procs, setProcs] = useState<ProcessGroup[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = () =>
+      api
+        .metricsProcesses(sort, 10)
+        .then((r) => active && setProcs(r.processes))
+        .catch((e) => active && setError(e instanceof ApiError ? e.message : 'Failed to load processes'))
+    load()
+    const id = setInterval(load, 4000)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [sort])
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Top programs (host, by {sort === 'cpu' ? 'CPU' : 'memory'})
+        </h2>
+        <div className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
+          {(['cpu', 'mem'] as ProcessSort[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSort(s)}
+              className={
+                'px-3 py-1 font-medium ' +
+                (sort === s
+                  ? 'bg-sky-600 text-white'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800')
+              }
+            >
+              {s === 'cpu' ? 'CPU' : 'Memory'}
+            </button>
+          ))}
+        </div>
+      </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        <table className="w-full min-w-[32rem] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+            <tr>
+              <th className="px-4 py-2 font-medium">Program</th>
+              <th className="px-4 py-2 font-medium">Procs</th>
+              <th className="px-4 py-2 font-medium">CPU</th>
+              <th className="px-4 py-2 font-medium">Memory</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            {procs.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-4 py-3 text-slate-400">
+                  Sampling…
+                </td>
+              </tr>
+            ) : (
+              procs.map((p) => (
+                <tr key={p.name} className="bg-white dark:bg-slate-950">
+                  <td className="truncate px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
+                  <td className="px-4 py-2 tabular-nums text-slate-500 dark:text-slate-400">{p.count}</td>
+                  <td className="px-4 py-2 tabular-nums text-slate-600 dark:text-slate-300">
+                    {formatPercent(p.cpu_pct)}
+                  </td>
+                  <td className="px-4 py-2 tabular-nums text-slate-600 dark:text-slate-300">
+                    {formatBytes(p.mem_bytes)}
+                    <span className="ml-1 text-xs text-slate-400">({formatPercent(p.mem_pct)})</span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
 

@@ -28,6 +28,16 @@ def history(
     return {"hours": hours, "samples": msvc.get_history(hours)}
 
 
+@router.get("/processes")
+def processes(
+    limit: int = Query(default=10, ge=1, le=50),
+    sort: str = Query(default="cpu", pattern="^(cpu|mem)$"),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    # Blocking ~0.35s (CPU delta sampling); sync handler runs in the threadpool.
+    return {"sort": sort, "processes": msvc.top_processes(limit=limit, sort=sort)}
+
+
 @router.websocket("/ws")
 async def ws_metrics(websocket: WebSocket) -> None:
     await websocket.accept()

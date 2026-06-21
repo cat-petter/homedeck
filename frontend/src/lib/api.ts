@@ -184,6 +184,16 @@ export interface MetricSample {
   load1: number
 }
 
+export interface ProcessGroup {
+  name: string
+  cpu_pct: number
+  mem_bytes: number
+  mem_pct: number
+  count: number
+}
+
+export type ProcessSort = 'cpu' | 'mem'
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -223,5 +233,9 @@ export const api = {
   metricsCurrent: () => request<MetricsSnapshot>('/api/metrics/current'),
   metricsHistory: (hours = 24) =>
     request<{ hours: number; samples: MetricSample[] }>(`/api/metrics/history?hours=${hours}`),
+  metricsProcesses: (sort: ProcessSort = 'cpu', limit = 10) =>
+    request<{ sort: ProcessSort; processes: ProcessGroup[] }>(
+      `/api/metrics/processes?sort=${sort}&limit=${limit}`,
+    ),
 }
 
