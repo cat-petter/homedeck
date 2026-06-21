@@ -5,10 +5,11 @@ containers, host apps, system health, and an app-store-style installer for both
 Debian (APT) packages and Docker apps, with full pre-install configuration and
 edit-after-install. Reachable over your LAN and via Tailscale.
 
-> **Status:** Phase 1 (scaffold) complete — backend + frontend shell, auth and
-> first-run setup wizard, SQLite, connectivity detection, systemd packaging.
-> Docker management, metrics, health checks, and the app stores land in later
-> phases (see [Roadmap](#roadmap)).
+> **Status:** Phases 1–2 complete — backend + frontend shell, auth and first-run
+> setup wizard, SQLite, connectivity detection, systemd packaging, and full Docker
+> container management (list/actions/logs/inspect with live status and log
+> streaming over WebSocket). Metrics, health checks, and the app stores land in
+> later phases (see [Roadmap](#roadmap)).
 
 ## Stack
 
@@ -107,7 +108,7 @@ HTTPS is optional. For direct-LAN hardening you can enable self-signed HTTPS und
 | Phase | Feature |
 |------:|---------|
 | 1 ✅ | Scaffold: FastAPI + static serving, React shell, auth + setup wizard, SQLite, install/systemd |
-| 2 | Docker container management (list/actions/logs/inspect) + live status via WebSocket |
+| 2 ✅ | Docker container management (list/actions/logs/inspect) + live status & log streaming via WebSocket |
 | 3 | System metrics (live + short history charts) |
 | 4 | Service health/uptime engine + quick-launch tiles |
 | 5 | Docker app store: catalog importer → normalize/dedup → config form → compose → deploy → manage → Docker Hub fallback |

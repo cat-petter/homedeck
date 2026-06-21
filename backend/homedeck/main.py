@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import REPO_ROOT, get_settings
 from .db import init_db
-from .routers import auth, system
+from .routers import auth, docker, system
 
 settings = get_settings()
 
@@ -32,6 +32,7 @@ app = FastAPI(title="HomeDeck", version=__version__, lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(auth.setup_router)
 app.include_router(system.router)
+app.include_router(docker.router)
 
 
 @app.get("/api/health", tags=["meta"])

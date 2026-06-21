@@ -106,7 +106,11 @@ cd frontend && npm run dev -- --host 0.0.0.0       # 0.0.0.0:5173, proxies /api
 
 1. **Scaffold** ✅ — prereqs, structure, FastAPI+static, React shell, auth+setup wizard,
    SQLite, install.sh, git init, private GitHub repo + push.
-2. Docker management (list/actions/logs/inspect) + live status via WebSocket.
+2. **Docker management** ✅ — list/actions/logs/inspect + live status & log
+   streaming via WebSocket. Service: `services/docker_service.py`; router:
+   `routers/docker.py` (REST + `ws/status`, `ws/logs/{id}`). WS auth via the
+   session cookie (`get_user_from_token`). Stats gathered concurrently (each
+   `stats(stream=False)` blocks ~1s). Stretch goal (web exec/terminal) deferred.
 3. System metrics (live + short history charts).
 4. Health engine + quick-launch tiles.
 5. Docker app store: importer → normalization/dedup → config form → compose → deploy → manage → Hub fallback.
