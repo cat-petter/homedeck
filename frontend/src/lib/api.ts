@@ -194,6 +194,53 @@ export interface ProcessGroup {
 
 export type ProcessSort = 'cpu' | 'mem'
 
+// --- Storage types ----------------------------------------------------------
+
+export interface StorageCategory {
+  type: string
+  count: number
+  active: number
+  size: number
+  reclaimable: number
+}
+
+export interface DockerUsage {
+  categories: StorageCategory[]
+  total_size: number
+  total_reclaimable: number
+  largest_images: { name: string; size: number; shared: number; containers: number }[]
+  largest_volumes: { name: string; size: number; refcount: number }[]
+}
+
+export interface FilesystemInfo {
+  device: string
+  mountpoint: string
+  fstype: string
+  opts: string
+  total: number
+  used: number
+  free: number
+  percent: number
+  inodes: { total: number; used: number; free: number; percent: number } | null
+}
+
+export interface DirEntry {
+  name: string
+  is_dir: boolean
+  is_link: boolean
+  is_mount: boolean
+  size: number
+  accessible: boolean
+  errors?: number
+}
+
+export interface DirBreakdown {
+  path: string
+  parent: string | null
+  entries: DirEntry[]
+  truncated: boolean
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -236,6 +283,14 @@ export const api = {
   metricsProcesses: (sort: ProcessSort = 'cpu', limit = 10) =>
     request<{ sort: ProcessSort; processes: ProcessGroup[] }>(
       `/api/metrics/processes?sort=${sort}&limit=${limit}`,
+    ),
+
+  // Storage
+  storageDocker: () => request<DockerUsage>('/api/storage/docker'),
+  storageFilesystems: () => request<{ filesystems: FilesystemInfo[] }>('/api/storage/filesystems'),
+  storageDirectories: (path = '/', limit = 40) =>
+    request<DirBreakdown>(
+      `/api/storage/directories?path=${encodeURIComponent(path)}&limit=${limit}`,
     ),
 }
 

@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import REPO_ROOT, get_settings
 from .db import init_db
-from .routers import auth, docker, metrics, system
+from .routers import auth, docker, metrics, storage, system
 from .services import metrics_service
 
 settings = get_settings()
@@ -39,6 +39,7 @@ app.include_router(auth.setup_router)
 app.include_router(system.router)
 app.include_router(docker.router)
 app.include_router(metrics.router)
+app.include_router(storage.router)
 
 
 @app.get("/api/health", tags=["meta"])

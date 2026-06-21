@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ApiError,
   api,
@@ -153,7 +154,7 @@ export function Metrics() {
           <Row label="Total out" value={formatBytes(snap?.network.tx_total)} mono />
         </Card>
 
-        <Card title="Disks" className="sm:col-span-2">
+        <Card title="Disks" className="sm:col-span-2" action={<Link to="/storage" className="text-xs font-medium text-sky-600 hover:underline dark:text-sky-400">Storage details →</Link>}>
           {!snap ? (
             <p className="text-sm text-slate-400">…</p>
           ) : snap.disks.length === 0 ? (
@@ -338,18 +339,23 @@ function Card({
   title,
   children,
   className = '',
+  action,
 }: {
   title: string
   children: React.ReactNode
   className?: string
+  action?: React.ReactNode
 }) {
   return (
     <div
       className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {title}
-      </h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {title}
+        </h3>
+        {action}
+      </div>
       {children}
     </div>
   )
