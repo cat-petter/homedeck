@@ -6,6 +6,7 @@ import { ThemeToggle } from './ThemeToggle'
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/docker', label: 'Docker', end: false },
+  { to: '/system', label: 'System', end: false },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

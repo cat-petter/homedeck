@@ -143,6 +143,47 @@ export interface ContainerInspect {
 
 export type DockerAction = 'start' | 'stop' | 'restart' | 'pause' | 'unpause'
 
+// --- Metrics types ----------------------------------------------------------
+
+export interface DiskInfo {
+  device: string
+  mountpoint: string
+  fstype: string
+  total: number
+  used: number
+  free: number
+  percent: number
+}
+
+export interface MetricsSnapshot {
+  ts: string
+  cpu: {
+    percent: number
+    per_cpu: number[]
+    count_logical: number | null
+    count_physical: number | null
+  }
+  memory: { total: number; used: number; available: number; percent: number }
+  swap: { total: number; used: number; percent: number }
+  disks: DiskInfo[]
+  network: { rx_rate: number; tx_rate: number; rx_total: number; tx_total: number }
+  load: { load1: number; load5: number; load15: number }
+  uptime_seconds: number
+  boot_time: number
+}
+
+export interface MetricSample {
+  ts: string
+  cpu_pct: number
+  mem_pct: number
+  mem_used: number
+  mem_total: number
+  swap_pct: number
+  net_rx_rate: number
+  net_tx_rate: number
+  load1: number
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -177,5 +218,10 @@ export const api = {
       { method: 'DELETE' },
     )
   },
+
+  // Metrics
+  metricsCurrent: () => request<MetricsSnapshot>('/api/metrics/current'),
+  metricsHistory: (hours = 24) =>
+    request<{ hours: number; samples: MetricSample[] }>(`/api/metrics/history?hours=${hours}`),
 }
 

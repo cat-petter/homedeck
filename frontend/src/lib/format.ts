@@ -18,6 +18,25 @@ export function formatPercent(pct: number | null | undefined): string {
   return `${pct.toFixed(1)}%`
 }
 
+export function formatRate(bytesPerSec: number | null | undefined): string {
+  if (bytesPerSec == null) return '—'
+  return `${formatBytes(bytesPerSec)}/s`
+}
+
+// Human duration from a number of seconds (e.g. "14d 5h", "3h 12m").
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null) return '—'
+  let s = Math.floor(seconds)
+  if (s < 0) s = 0
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m`
+  return `${s}s`
+}
+
 // Compact relative duration since an ISO timestamp (e.g. "3d 4h", "12m").
 export function formatUptime(startedAt: string | null | undefined): string {
   if (!startedAt) return '—'

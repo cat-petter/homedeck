@@ -1,73 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ApiError,
-  api,
-  type ContainerStat,
-  type ContainerSummary,
-  type DockerAction,
-} from '../lib/api'
-import { wsUrl } from '../lib/ws'
+import { useCallback, useState } from 'react'
+import { ApiError, api, type ContainerSummary, type DockerAction } from '../lib/api'
 import { formatBytes, formatPercent, formatUptime } from '../lib/format'
+import { useDockerStatus } from '../lib/useDockerStatus'
 import { ConfirmDialog, type ConfirmOptions } from '../components/ConfirmDialog'
 import { LogsDrawer } from '../components/LogsDrawer'
 import { InspectDrawer } from '../components/InspectDrawer'
-
-type WsState = 'connecting' | 'open' | 'closed'
-
-// Live container list + stats over the status WebSocket, with auto-reconnect.
-function useDockerStatus() {
-  const [containers, setContainers] = useState<ContainerSummary[] | null>(null)
-  const [stats, setStats] = useState<Record<string, ContainerStat>>({})
-  const [wsState, setWsState] = useState<WsState>('connecting')
-  const [error, setError] = useState<string | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const closedByUs = useRef(false)
-
-  useEffect(() => {
-    closedByUs.current = false
-
-    const connect = () => {
-      const ws = new WebSocket(wsUrl('/api/docker/ws/status'))
-      wsRef.current = ws
-      setWsState('connecting')
-      ws.onopen = () => setWsState('open')
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data)
-          if (msg.type === 'snapshot') {
-            setContainers(msg.containers)
-            setError(null)
-          } else if (msg.type === 'stats') {
-            const map: Record<string, ContainerStat> = {}
-            for (const s of msg.stats as ContainerStat[]) map[s.id] = s
-            setStats(map)
-          } else if (msg.type === 'error') {
-            setError(String(msg.detail))
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-      ws.onclose = () => {
-        setWsState('closed')
-        if (!closedByUs.current) {
-          reconnectRef.current = setTimeout(connect, 2000)
-        }
-      }
-      ws.onerror = () => ws.close()
-    }
-
-    connect()
-    return () => {
-      closedByUs.current = true
-      if (reconnectRef.current) clearTimeout(reconnectRef.current)
-      wsRef.current?.close()
-    }
-  }, [])
-
-  return { containers, stats, wsState, error }
-}
 
 const STATE_STYLES: Record<string, string> = {
   running: 'bg-emerald-500',

@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { ApiError, api, type SystemInfo } from '../lib/api'
 
 const PHASES = [
-  { name: 'Docker containers', desc: 'List, control, logs & inspect', icon: '🐳', phase: 2 },
-  { name: 'System metrics', desc: 'CPU, RAM, disk, network & history', icon: '📊', phase: 3 },
   { name: 'Health & uptime', desc: 'HTTP/TCP/ping checks + status', icon: '💓', phase: 4 },
   { name: 'Quick-launch tiles', desc: 'App links with live status', icon: '🚀', phase: 4 },
   { name: 'Docker app store', desc: 'Catalogs, config forms & deploy', icon: '📦', phase: 5 },

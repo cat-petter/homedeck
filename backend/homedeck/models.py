@@ -34,3 +34,21 @@ class AuthSession(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True)
     created_at: datetime = Field(default_factory=utcnow)
     expires_at: datetime
+
+
+class MetricSample(SQLModel, table=True):
+    """A periodic host-metrics snapshot for the ~24h history charts."""
+
+    __tablename__ = "metric_samples"
+
+    id: int | None = Field(default=None, primary_key=True)
+    ts: datetime = Field(default_factory=utcnow, index=True)
+    cpu_pct: float
+    mem_pct: float
+    mem_used: int
+    mem_total: int
+    swap_pct: float
+    # Instantaneous network throughput in bytes/sec at sample time.
+    net_rx_rate: float
+    net_tx_rate: float
+    load1: float

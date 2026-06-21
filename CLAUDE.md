@@ -111,7 +111,13 @@ cd frontend && npm run dev -- --host 0.0.0.0       # 0.0.0.0:5173, proxies /api
    `routers/docker.py` (REST + `ws/status`, `ws/logs/{id}`). WS auth via the
    session cookie (`get_user_from_token`). Stats gathered concurrently (each
    `stats(stream=False)` blocks ~1s). Stretch goal (web exec/terminal) deferred.
-3. System metrics (live + short history charts).
+3. **System metrics** ✅ — live CPU/RAM/swap/disk/net/load/uptime via `psutil`
+   (`services/metrics_service.py`). A single background collector loop (started in
+   the app lifespan) owns all sampling so rate metrics stay consistent; it caches
+   the latest snapshot for `GET /api/metrics/current` and `ws/metrics`, and writes
+   a `MetricSample` row every 15s with 24h retention for `GET /api/metrics/history`.
+   Frontend `/system` page: live cards + dependency-free SVG `LineChart` (no chart
+   lib) + per-container breakdown reusing the docker status WS.
 4. Health engine + quick-launch tiles.
 5. Docker app store: importer → normalization/dedup → config form → compose → deploy → manage → Hub fallback.
 6. APT app store: python-apt/AppStream browse → install/remove/upgrade with live output.

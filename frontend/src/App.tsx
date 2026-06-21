@@ -5,6 +5,7 @@ import { useAuth } from './lib/auth'
 import { Layout } from './components/Layout'
 import { Dashboard } from './pages/Dashboard'
 import { Docker } from './pages/Docker'
+import { Metrics } from './pages/Metrics'
 import { Login } from './pages/Login'
 import { Setup } from './pages/Setup'
 
@@ -60,6 +61,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/docker" element={<Docker />} />
+        <Route path="/system" element={<Metrics />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
