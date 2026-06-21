@@ -42,8 +42,6 @@ export function Dashboard() {
         </div>
       )}
 
-      <QuickLaunch />
-
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card title="Host">
           <Row label="Hostname" value={info?.hostname} />
@@ -77,6 +75,8 @@ export function Dashboard() {
           )}
         </Card>
       </section>
+
+      <QuickLaunch />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

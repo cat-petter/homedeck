@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { getAccessMode } from '../lib/access'
 import { ThemeToggle } from './ThemeToggle'
 
 const NAV = [
@@ -41,6 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <ConnectionBadge />
             <ThemeToggle />
             {user && (
               <>
@@ -61,5 +63,24 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
     </div>
+  )
+}
+
+function ConnectionBadge() {
+  const mode = getAccessMode()
+  const tailscale = mode === 'tailscale'
+  return (
+    <span
+      title={`You reached HomeDeck via ${tailscale ? 'Tailscale' : 'your LAN'}`}
+      className={
+        'hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex ' +
+        (tailscale
+          ? 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300'
+          : 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300')
+      }
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${tailscale ? 'bg-violet-500' : 'bg-emerald-500'}`} />
+      {tailscale ? 'Tailscale' : 'LAN'}
+    </span>
   )
 }
