@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type CheckType, type ServiceData, type ServiceInput } from '../lib/api'
 import { Modal } from './Modal'
+import { AppIcon } from './AppIcon'
 
 const EMPTY: ServiceInput = {
   name: '',
@@ -90,7 +91,19 @@ export function ServiceForm({
         <div className="grid grid-cols-2 gap-3">
           <Text label="Name" value={form.name} onChange={(v) => set('name', v)} required autoFocus />
           <Text label="Category" value={form.category} onChange={(v) => set('category', v)} placeholder="e.g. Media" />
-          <Text label="Icon (emoji)" value={form.icon} onChange={(v) => set('icon', v)} placeholder="🎬" />
+          <div className="col-span-2 flex items-end gap-3">
+            <Text
+              label="Icon"
+              value={form.icon}
+              onChange={(v) => set('icon', v)}
+              placeholder="https://…/icon.png  or  an emoji 🎬"
+              hint="Image URL (CasaOS-style) or an emoji."
+              className="flex-1"
+            />
+            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+              <AppIcon icon={form.icon} size={28} />
+            </div>
+          </div>
           <Text label="Sort order" type="number" value={String(form.sort_order)} onChange={(v) => set('sort_order', Number(v) || 0)} />
           <Text label="LAN URL" value={form.lan_url} onChange={(v) => set('lan_url', v)} placeholder="http://192.168.1.250:8096" className="col-span-2" />
           <Text label="Tailscale URL" value={form.tailscale_url} onChange={(v) => set('tailscale_url', v)} placeholder="http://host.tailnet.ts.net:8096" className="col-span-2" />

@@ -2,19 +2,30 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ServiceData } from '../lib/api'
 import { useHealthStatus } from '../lib/useHealthStatus'
+import { getAccessMode, pickServiceUrl } from '../lib/access'
 import { StatusDot } from './StatusDot'
+import { AppIcon } from './AppIcon'
 import { ServiceForm } from './ServiceForm'
 
 export function QuickLaunch() {
   const { services, refresh } = useHealthStatus()
   const [formOpen, setFormOpen] = useState(false)
+  const mode = getAccessMode()
+  const anyDual = (services ?? []).some((s) => s.lan_url && s.tailscale_url)
 
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Quick launch
-        </h2>
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Quick launch
+          </h2>
+          {anyDual && (
+            <span className="text-xs text-slate-400" title="Tiles open the URL matching how you reached this dashboard">
+              opens via {mode === 'tailscale' ? 'Tailscale' : 'LAN'}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3 text-xs">
           <Link to="/health" className="font-medium text-slate-500 hover:underline dark:text-slate-400">
             Manage
@@ -40,7 +51,7 @@ export function QuickLaunch() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {(services ?? []).map((s) => (
-            <Tile key={s.id} s={s} />
+            <Tile key={s.id} s={s} mode={mode} />
           ))}
         </div>
       )}
@@ -50,16 +61,14 @@ export function QuickLaunch() {
   )
 }
 
-function Tile({ s }: { s: ServiceData }) {
-  const both = !!(s.lan_url && s.tailscale_url)
-  // Whole-card link only when there's a single URL — avoids nesting the LAN/TS
-  // chip anchors inside a card-level anchor (invalid HTML) when both exist.
-  const singleUrl = both ? null : s.lan_url || s.tailscale_url
+function Tile({ s, mode }: { s: ServiceData; mode: ReturnType<typeof getAccessMode> }) {
+  // One click opens the URL matching how the dashboard was reached.
+  const url = pickServiceUrl(s.lan_url, s.tailscale_url, mode)
 
   const header = (
     <>
       <div className="flex items-start justify-between">
-        <span className="text-2xl">{s.icon || '🔗'}</span>
+        <AppIcon icon={s.icon} size={36} />
         <StatusDot status={s.last_status} pulse />
       </div>
       <div className="mt-2 min-w-0">
@@ -72,27 +81,11 @@ function Tile({ s }: { s: ServiceData }) {
   const cls =
     'flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-400 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-600'
 
-  if (singleUrl) {
-    return (
-      <a href={singleUrl} target="_blank" rel="noreferrer" className={cls}>
-        {header}
-      </a>
-    )
-  }
-
-  return (
-    <div className={cls}>
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" className={cls}>
       {header}
-      {both && (
-        <div className="mt-2 flex gap-2 text-[10px] font-medium">
-          <a href={s.lan_url} target="_blank" rel="noreferrer" className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">
-            LAN
-          </a>
-          <a href={s.tailscale_url} target="_blank" rel="noreferrer" className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">
-            TS
-          </a>
-        </div>
-      )}
-    </div>
+    </a>
+  ) : (
+    <div className={cls}>{header}</div>
   )
 }

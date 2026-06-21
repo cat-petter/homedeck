@@ -35,7 +35,7 @@ STATUS_INTERVAL_SECONDS = 5.0
 class ServiceIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     category: str = Field(default="", max_length=60)
-    icon: str = Field(default="", max_length=16)
+    icon: str = Field(default="", max_length=512)  # emoji or image URL
     lan_url: str = Field(default="", max_length=500)
     tailscale_url: str = Field(default="", max_length=500)
     check_type: CheckType = "none"

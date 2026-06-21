@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type ServiceData, type ServiceHistory } from '../lib/api'
 import { useHealthStatus } from '../lib/useHealthStatus'
+import { pickServiceUrl } from '../lib/access'
 import { formatUptime } from '../lib/format'
 import { STATUS_LABEL, StatusDot } from '../components/StatusDot'
+import { AppIcon } from '../components/AppIcon'
 import { ServiceForm } from '../components/ServiceForm'
 import { ConfirmDialog, type ConfirmOptions } from '../components/ConfirmDialog'
 import { LineChart, type Series } from '../components/LineChart'
@@ -135,13 +137,13 @@ function ServiceRow({
   onDelete: () => void
   onCheck: () => void
 }) {
-  const url = s.lan_url || s.tailscale_url
+  const url = pickServiceUrl(s.lan_url, s.tailscale_url)
   return (
     <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <StatusDot status={s.last_status} pulse />
-          <span className="text-lg">{s.icon || '🔗'}</span>
+          <AppIcon icon={s.icon} size={24} />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate font-medium text-slate-900 dark:text-slate-100">{s.name}</span>
