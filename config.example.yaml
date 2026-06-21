@@ -1,0 +1,30 @@
+# HomeDeck configuration — copy to config.yaml and edit.
+# Any value here can be overridden by an environment variable using the prefix
+# HOMEDECK_ and `__` as the nesting delimiter, e.g.:
+#   HOMEDECK_SERVER__PORT=9000   overrides server.port
+# Precedence: built-in defaults < config.yaml < environment.
+#
+# config.yaml is git-ignored (it is host-specific). This example is committed.
+
+server:
+  # Bind 0.0.0.0 so the dashboard is reachable over LAN and Tailscale.
+  host: 0.0.0.0
+  # 8770 avoids the very common 8080 (often already in use on a homelab).
+  port: 8770
+  https:
+    # Optional self-signed HTTPS. Tailscale already provides encrypted,
+    # identity-bound access, so HTTPS is mainly for direct-LAN hardening.
+    enabled: false
+    cert_file: ''
+    key_file: ''
+
+database:
+  # Relative paths are resolved against the repo root. Git-ignored.
+  path: data/homedeck.db
+
+docker:
+  socket: unix:///var/run/docker.sock
+
+session:
+  cookie_name: homedeck_session
+  lifetime_hours: 336 # 14 days

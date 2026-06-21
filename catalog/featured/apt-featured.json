@@ -1,0 +1,4 @@
+{
+  "$comment": "Small curated 'Featured' list for the APT app store (Phase 6). Package names are resolved live via python-apt/AppStream; this only controls featuring/order.",
+  "featured": []
+}

@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/* Manual dark mode via a `.dark` class on <html> (toggle + persisted),
+   instead of Tailwind v4's default prefers-color-scheme behavior. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}

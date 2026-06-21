@@ -1,0 +1,39 @@
+# --- Secrets / host-specific config (NEVER commit) ---
+config.yaml
+.env
+*.env
+!.env.example
+*.pem
+*.key
+*.crt
+
+# --- Data stores (DB, metrics/history) ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.vite/
+*.local
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,19 @@
+# HomeDeck backend dependencies (Python 3.11+, Debian 12 Bookworm)
+# Pinned to compatible ranges; refresh deliberately, not silently.
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+sqlmodel==0.0.22
+argon2-cffi==23.1.0
+PyYAML==6.0.2
+python-multipart==0.0.20
+
+# Used from later phases (Docker mgmt, metrics). Listed now so install.sh is stable.
+docker==7.1.0
+psutil==6.1.1
+
+# NOTE: python-apt and AppStream (appstreamcli/libappstream) are SYSTEM packages,
+# installed via apt on the host, NOT via pip. The backend imports the system `apt`
+# module, so the venv is created with --system-site-packages (see install.sh).

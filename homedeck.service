@@ -1,0 +1,29 @@
+[Unit]
+# HomeDeck — homelab dashboard backend (FastAPI on the host, not containerized).
+# This is a TEMPLATE: install.sh substitutes __USER__, __REPO_ROOT__ and __VENV_PYTHON__.
+Description=HomeDeck homelab dashboard
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+# WorkingDirectory is backend/ so `python -m homedeck` resolves the package
+# (paths inside the app resolve to the repo root via __file__, not cwd).
+WorkingDirectory=__REPO_ROOT__/backend
+ExecStart=__VENV_PYTHON__ -m homedeck
+Restart=on-failure
+RestartSec=3
+
+# The backend needs the host's Docker socket and (later phases) apt/AppStream and
+# host metrics, which is why it runs on the host rather than in a container.
+# It runs as a normal user that is a member of the `docker` group.
+# NOTE: apt install/remove (Phase 6) will require additional privilege; that
+# elevation model is decided/documented when that phase lands.
+
+# Light hardening that does not interfere with Docker/metrics access:
+NoNewPrivileges=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
