@@ -4,22 +4,40 @@ import {
   api,
   type CatalogTemplate,
   type InstallConfig,
+  type NetworkOption,
   type RenderResult,
 } from '../lib/api'
 import { Modal } from './Modal'
+import { AppIcon } from './AppIcon'
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^[-_.]+|[-_.]+$/g, '') || 'app'
 }
 
+function splitImage(ref: string): { image: string; tag: string } {
+  if (!ref) return { image: '', tag: 'latest' }
+  const lastSeg = ref.split('/').pop() || ref
+  if (lastSeg.includes(':')) {
+    const idx = ref.lastIndexOf(':')
+    return { image: ref.slice(0, idx), tag: ref.slice(idx + 1) }
+  }
+  return { image: ref, tag: 'latest' }
+}
+
 function initConfig(t: CatalogTemplate): InstallConfig {
-  const name = slugify(t.name)
+  const title = t.name
+  const name = slugify(title)
+  const { image, tag } = splitImage(t.image)
   const spec = t.spec!
   return {
+    title,
     name,
-    image: t.image,
-    restart_policy: spec.restart_policy || 'unless-stopped',
-    network: spec.network || '',
+    image,
+    tag,
+    icon: t.logo || '',
+    web_ui_lan: '',
+    web_ui_tailscale: '',
+    network: spec.network || 'bridge',
     ports: spec.ports.map((p) => ({
       container_port: p.container_port,
       protocol: p.protocol,
@@ -36,16 +54,28 @@ function initConfig(t: CatalogTemplate): InstallConfig {
       container_path: v.container_path,
       type: v.type,
       readonly: v.readonly,
-      source:
-        v.bind ||
-        (v.type === 'bind'
-          ? `/DATA/AppData/${name}${v.container_path}`
-          : `${name}${slugify(v.container_path)}`),
+      source: v.bind || (v.type === 'bind' ? `/DATA/AppData/${name}${v.container_path}` : `${name}${slugify(v.container_path)}`),
     })),
+    devices: [],
+    command: spec.command || '',
+    privileged: spec.privileged || false,
+    mem_limit_mb: null,
+    cpu_shares: null,
+    restart_policy: spec.restart_policy || 'unless-stopped',
+    cap_add: [],
   }
 }
 
 const RESTART_POLICIES = ['unless-stopped', 'always', 'on-failure', 'no']
+const CPU_OPTIONS = [
+  { label: 'Default', value: '' },
+  { label: 'Low (512)', value: '512' },
+  { label: 'Normal (1024)', value: '1024' },
+  { label: 'High (2048)', value: '2048' },
+  { label: 'Max (4096)', value: '4096' },
+]
+const COMMON_CAPS = ['NET_ADMIN', 'NET_RAW', 'SYS_ADMIN', 'SYS_MODULE', 'SYS_NICE', 'SYS_TIME', 'MKNOD', 'CHOWN', 'DAC_OVERRIDE']
+const MEM_MAX = 16384
 
 export function InstallConfigForm({
   template,
@@ -60,22 +90,43 @@ export function InstallConfigForm({
   const [render, setRender] = useState<RenderResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
+  const [networks, setNetworks] = useState<NetworkOption[]>([])
 
   useEffect(() => {
-    if (open && template?.spec) {
-      setConfig(initConfig(template))
-      setRender(null)
-      setError(null)
-      setRaw(false)
+    if (!open || !template?.spec) return
+    const c = initConfig(template)
+    setConfig(c)
+    setRender(null)
+    setError(null)
+    setRaw(false)
+    // Autofill the web-UI URLs from the first published port + detected IPs.
+    const firstPort = c.ports.find((p) => p.host_port)?.host_port
+    if (firstPort) {
+      api
+        .systemInfo()
+        .then((info) => {
+          const lan = info.connectivity.lan_ip
+          const ts = info.connectivity.tailscale_dns
+          setConfig((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  web_ui_lan: lan ? `http://${lan}:${firstPort}` : '',
+                  web_ui_tailscale: ts ? `http://${ts}:${firstPort}` : '',
+                }
+              : prev,
+          )
+        })
+        .catch(() => {})
     }
+    api.dockerNetworks().then((r) => setNetworks(r.options)).catch(() => {})
   }, [open, template])
 
-  // Debounced render/validate on config changes.
   useEffect(() => {
-    if (!config || !template) return
+    if (!config) return
     const h = setTimeout(() => {
       api
-        .catalogRender(template.id, config)
+        .catalogRender(template?.id ?? '', config)
         .then(setRender)
         .catch((e) => setError(e instanceof ApiError ? e.message : 'Render failed'))
     }, 300)
@@ -84,43 +135,25 @@ export function InstallConfigForm({
 
   const issuesByField = useMemo(() => {
     const m: Record<string, string[]> = {}
-    for (const i of render?.validation.issues ?? []) {
-      ;(m[i.field] ??= []).push(i.message)
-    }
+    for (const i of render?.validation.issues ?? []) (m[i.field] ??= []).push(i.message)
     return m
   }, [render])
 
   if (!config || !template) return null
-
   const patch = (p: Partial<InstallConfig>) => setConfig({ ...config, ...p })
-  const setPort = (i: number, host: string) => {
-    const ports = config.ports.map((p, j) => (j === i ? { ...p, host_port: host } : p))
-    patch({ ports })
-  }
-  const setEnv = (i: number, value: string) => {
-    const env = config.env.map((e, j) => (j === i ? { ...e, value } : e))
-    patch({ env })
-  }
-  const setVol = (i: number, source: string) => {
-    const volumes = config.volumes.map((v, j) => (j === i ? { ...v, source } : v))
-    patch({ volumes })
-  }
-
   const okToInstall = render?.validation.ok ?? false
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="install-title">
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <AppIcon icon={config.icon} size={32} />
             <h2 id="install-title" className="truncate font-semibold text-slate-900 dark:text-slate-100">
-              Configure {template.name}
+              Configure {config.title || template.name}
             </h2>
-            <div className="truncate font-mono text-xs text-slate-500 dark:text-slate-400">{template.image}</div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-            ✕
-          </button>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
         </div>
 
         <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2 text-xs dark:border-slate-800">
@@ -132,76 +165,136 @@ export function InstallConfigForm({
           {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
 
           {raw ? (
-            <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-200">
-              {render?.compose_yaml ?? 'Rendering…'}
-            </pre>
+            <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-200">{render?.compose_yaml ?? 'Rendering…'}</pre>
           ) : (
             <div className="space-y-5 text-sm">
-              <Field label="Container name">
-                <input value={config.name} onChange={(e) => patch({ name: e.target.value })} className={inputCls} />
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Docker image" required className="col-span-2" err={issuesByField['image']}>
+                  <input value={config.image} onChange={(e) => patch({ image: e.target.value })} placeholder="linuxserver/jellyfin" className={inp} />
+                </Field>
+                <Field label="Tag">
+                  <input value={config.tag} onChange={(e) => patch({ tag: e.target.value })} placeholder="latest" className={inp} />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Title" required className="col-span-2" err={issuesByField['title']}>
+                  <input value={config.title} onChange={(e) => patch({ title: e.target.value, name: slugify(e.target.value) })} className={inp} />
+                </Field>
+                <Field label="Preview">
+                  <div className="flex h-10 items-center"><AppIcon icon={config.icon} size={28} /></div>
+                </Field>
+              </div>
+
+              <Field label="Icon URL" hint="Image URL (CasaOS-style) or emoji">
+                <input value={config.icon} onChange={(e) => patch({ icon: e.target.value })} placeholder="https://…/icon.png" className={inp} />
               </Field>
 
-              {config.ports.length > 0 && (
-                <Group title="Ports">
-                  {config.ports.map((p, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <input
-                        value={p.host_port}
-                        onChange={(e) => setPort(i, e.target.value)}
-                        placeholder="host"
-                        className={`w-24 ${inputCls} ${issuesByField[`port:${p.host_port}`] ? 'border-red-500' : ''}`}
-                      />
-                      <span className="text-slate-400">→</span>
-                      <span className="font-mono text-xs text-slate-600 dark:text-slate-300">
-                        {p.container_port}/{p.protocol}
-                      </span>
-                    </div>
-                  ))}
-                </Group>
-              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Web UI (LAN)"><input value={config.web_ui_lan} onChange={(e) => patch({ web_ui_lan: e.target.value })} placeholder="http://192.168.1.x:PORT" className={inp} /></Field>
+                <Field label="Web UI (Tailscale)"><input value={config.web_ui_tailscale} onChange={(e) => patch({ web_ui_tailscale: e.target.value })} placeholder="http://host.ts.net:PORT" className={inp} /></Field>
+              </div>
 
-              {config.env.length > 0 && (
-                <Group title="Environment">
-                  {config.env.map((e, i) => (
-                    <Field
-                      key={e.name}
-                      label={
-                        <>
-                          <span className="font-mono">{e.name}</span>
-                          {e.required && <span className="ml-1 text-[10px] text-red-500">required</span>}
-                        </>
-                      }
-                      hint={e.description}
-                    >
-                      <input
-                        value={e.value}
-                        onChange={(ev) => setEnv(i, ev.target.value)}
-                        className={`${inputCls} ${issuesByField[`env:${e.name}`] ? 'border-red-500' : ''}`}
-                      />
-                    </Field>
-                  ))}
-                </Group>
-              )}
+              <Field label="Network interface">
+                <select value={config.network} onChange={(e) => patch({ network: e.target.value })} className={inp}>
+                  {networks.length === 0 && <option value={config.network}>{config.network || 'bridge'}</option>}
+                  {networks.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+                </select>
+              </Field>
 
-              {config.volumes.length > 0 && (
-                <Group title="Volumes">
-                  {config.volumes.map((v, i) => (
-                    <Field key={i} label={<span className="font-mono text-xs">{v.container_path}</span>} hint={v.type}>
-                      <input value={v.source} onChange={(e) => setVol(i, e.target.value)} className={inputCls} />
-                    </Field>
-                  ))}
-                </Group>
-              )}
+              <RowGroup
+                title="Ports (host → container)"
+                rows={config.ports}
+                onAdd={() => patch({ ports: [...config.ports, { host_port: '', container_port: '', protocol: 'tcp' }] })}
+                onRemove={(i) => patch({ ports: config.ports.filter((_, j) => j !== i) })}
+                render={(p, i) => (
+                  <>
+                    <input value={p.host_port} onChange={(e) => patch({ ports: config.ports.map((x, j) => (j === i ? { ...x, host_port: e.target.value } : x)) })} placeholder="host" className={`w-24 ${inp} ${issuesByField[`port:${p.host_port}`] ? 'border-red-500' : ''}`} />
+                    <span className="text-slate-400">→</span>
+                    <input value={p.container_port} onChange={(e) => patch({ ports: config.ports.map((x, j) => (j === i ? { ...x, container_port: e.target.value } : x)) })} placeholder="container" className={`w-24 ${inp}`} />
+                    <select value={p.protocol} onChange={(e) => patch({ ports: config.ports.map((x, j) => (j === i ? { ...x, protocol: e.target.value } : x)) })} className={`w-20 ${inp}`}>
+                      <option value="tcp">tcp</option><option value="udp">udp</option>
+                    </select>
+                  </>
+                )}
+              />
+
+              <RowGroup
+                title="Volumes (host → container)"
+                rows={config.volumes}
+                onAdd={() => patch({ volumes: [...config.volumes, { source: '', container_path: '', type: 'bind', readonly: false }] })}
+                onRemove={(i) => patch({ volumes: config.volumes.filter((_, j) => j !== i) })}
+                render={(v, i) => (
+                  <>
+                    <input value={v.source} onChange={(e) => patch({ volumes: config.volumes.map((x, j) => (j === i ? { ...x, source: e.target.value } : x)) })} placeholder="host path / volume" className={`flex-1 ${inp}`} />
+                    <span className="text-slate-400">→</span>
+                    <input value={v.container_path} onChange={(e) => patch({ volumes: config.volumes.map((x, j) => (j === i ? { ...x, container_path: e.target.value } : x)) })} placeholder="/container" className={`flex-1 ${inp}`} />
+                    <label className="flex items-center gap-1 text-xs text-slate-500"><input type="checkbox" checked={!!v.readonly} onChange={(e) => patch({ volumes: config.volumes.map((x, j) => (j === i ? { ...x, readonly: e.target.checked } : x)) })} />ro</label>
+                  </>
+                )}
+              />
+
+              <RowGroup
+                title="Environment variables"
+                rows={config.env}
+                onAdd={() => patch({ env: [...config.env, { name: '', value: '' }] })}
+                onRemove={(i) => patch({ env: config.env.filter((_, j) => j !== i) })}
+                render={(e, i) => (
+                  <>
+                    <input value={e.name} onChange={(ev) => patch({ env: config.env.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)) })} placeholder="NAME" className={`w-40 font-mono ${inp} ${issuesByField[`env:${e.name}`] ? 'border-red-500' : ''}`} />
+                    <span className="text-slate-400">=</span>
+                    <input value={e.value} onChange={(ev) => patch({ env: config.env.map((x, j) => (j === i ? { ...x, value: ev.target.value } : x)) })} placeholder="value" className={`flex-1 ${inp}`} title={e.description} />
+                    {e.required && <span className="text-[10px] text-red-500">req</span>}
+                  </>
+                )}
+              />
+
+              <RowGroup
+                title="Devices (host → container)"
+                rows={config.devices}
+                onAdd={() => patch({ devices: [...config.devices, { host: '', container: '' }] })}
+                onRemove={(i) => patch({ devices: config.devices.filter((_, j) => j !== i) })}
+                render={(d, i) => (
+                  <>
+                    <input value={d.host} onChange={(e) => patch({ devices: config.devices.map((x, j) => (j === i ? { ...x, host: e.target.value } : x)) })} placeholder="/dev/dri" className={`flex-1 ${inp}`} />
+                    <span className="text-slate-400">→</span>
+                    <input value={d.container} onChange={(e) => patch({ devices: config.devices.map((x, j) => (j === i ? { ...x, container: e.target.value } : x)) })} placeholder="/dev/dri" className={`flex-1 ${inp}`} />
+                  </>
+                )}
+              />
+
+              <RowGroup
+                title="Capabilities (cap-add)"
+                rows={config.cap_add}
+                onAdd={() => patch({ cap_add: [...config.cap_add, ''] })}
+                onRemove={(i) => patch({ cap_add: config.cap_add.filter((_, j) => j !== i) })}
+                render={(c, i) => (
+                  <>
+                    <input list="caps-list" value={c} onChange={(e) => patch({ cap_add: config.cap_add.map((x, j) => (j === i ? e.target.value : x)) })} placeholder="NET_ADMIN" className={`w-48 font-mono ${inp}`} />
+                  </>
+                )}
+              />
+              <datalist id="caps-list">{COMMON_CAPS.map((c) => <option key={c} value={c} />)}</datalist>
+
+              <Field label="Container command" hint="Startup command override (optional)">
+                <input value={config.command} onChange={(e) => patch({ command: e.target.value })} className={`font-mono ${inp}`} />
+              </Field>
+
+              <label className="flex items-center gap-2"><input type="checkbox" checked={config.privileged} onChange={(e) => patch({ privileged: e.target.checked })} /><span className="text-slate-700 dark:text-slate-300">Privileged mode</span></label>
+
+              <Field label={`Memory limit: ${config.mem_limit_mb ? `${config.mem_limit_mb} MB` : 'Unlimited'}`}>
+                <input type="range" min={0} max={MEM_MAX} step={256} value={config.mem_limit_mb ?? 0} onChange={(e) => patch({ mem_limit_mb: Number(e.target.value) || null })} className="w-full" />
+              </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Network">
-                  <input value={config.network} onChange={(e) => patch({ network: e.target.value })} placeholder="bridge" className={inputCls} />
+                <Field label="CPU shares">
+                  <select value={config.cpu_shares == null ? '' : String(config.cpu_shares)} onChange={(e) => patch({ cpu_shares: e.target.value ? Number(e.target.value) : null })} className={inp}>
+                    {CPU_OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
+                  </select>
                 </Field>
                 <Field label="Restart policy">
-                  <select value={config.restart_policy} onChange={(e) => patch({ restart_policy: e.target.value })} className={inputCls}>
-                    {RESTART_POLICIES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
+                  <select value={config.restart_policy} onChange={(e) => patch({ restart_policy: e.target.value })} className={inp}>
+                    {RESTART_POLICIES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </Field>
               </div>
@@ -211,18 +304,11 @@ export function InstallConfigForm({
 
         <div className="space-y-2 border-t border-slate-200 p-4 dark:border-slate-800">
           {render && !okToInstall && (
-            <ul className="space-y-1 text-xs text-red-500">
-              {render.validation.issues.map((i, k) => (
-                <li key={k}>• {i.message}</li>
-              ))}
+            <ul className="max-h-24 space-y-1 overflow-y-auto text-xs text-red-500">
+              {render.validation.issues.map((i, k) => <li key={k}>• {i.message}</li>)}
             </ul>
           )}
-          <button
-            type="button"
-            disabled
-            title="Deploy lands in the next step"
-            className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-          >
+          <button type="button" disabled title="Deploy lands in the next step" className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
             {okToInstall ? 'Deploy — coming next' : 'Resolve issues to deploy'}
           </button>
         </div>
@@ -231,31 +317,44 @@ export function InstallConfigForm({
   )
 }
 
-const inputCls =
+const inp =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'
 
 function tab(active: boolean): string {
-  return (
-    'rounded-md px-3 py-1 font-medium ' +
-    (active ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
-  )
+  return 'rounded-md px-3 py-1 font-medium ' + (active ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
 }
 
-function Field({ label, hint, children }: { label: React.ReactNode; hint?: string; children: React.ReactNode }) {
+function Field({ label, hint, required, err, className = '', children }: { label: string; hint?: string; required?: boolean; err?: string[]; className?: string; children: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </span>
       {children}
-      {hint && <span className="mt-0.5 block text-xs text-slate-400">{hint}</span>}
+      {err && err.length > 0 && <span className="mt-0.5 block text-xs text-red-500">{err[0]}</span>}
+      {hint && !err?.length && <span className="mt-0.5 block text-xs text-slate-400">{hint}</span>}
     </label>
   )
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function RowGroup<T>({ title, rows, onAdd, onRemove, render }: { title: string; rows: T[]; onAdd: () => void; onRemove: (i: number) => void; render: (row: T, i: number) => React.ReactNode }) {
   return (
     <fieldset className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</legend>
-      {children}
+      <legend className="flex items-center gap-2 px-1">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</span>
+        <button type="button" onClick={onAdd} className="rounded bg-slate-100 px-1.5 text-xs font-medium text-sky-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-sky-400">+ add</button>
+      </legend>
+      {rows.length === 0 ? (
+        <p className="text-xs text-slate-400">None</p>
+      ) : (
+        rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {render(row, i)}
+            <button type="button" onClick={() => onRemove(i)} className="ml-auto shrink-0 rounded px-1.5 text-xs text-slate-400 hover:text-red-500" aria-label="Remove">✕</button>
+          </div>
+        ))
+      )}
     </fieldset>
   )
 }

@@ -59,6 +59,12 @@ def list_containers(
         return dsvc.list_containers(all_=all)
 
 
+@router.get("/networks")
+def list_networks(_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    with docker_errors():
+        return {"options": dsvc.network_options()}
+
+
 @router.get("/containers/{container_id}/inspect")
 def inspect_container(
     container_id: str,

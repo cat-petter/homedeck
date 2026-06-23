@@ -54,13 +54,21 @@ def used_host_ports() -> set[int]:
 
 # --- Render -----------------------------------------------------------------
 
-def render_compose(image: str, config: dict[str, Any]) -> dict[str, Any]:
-    """Build a compose dict from a config. Single-service (the template image)."""
-    name = safe_name(config.get("name") or "")
-    service: dict[str, Any] = {"image": image, "container_name": name}
+def full_image(config: dict[str, Any]) -> str:
+    image = str(config.get("image") or "").strip()
+    if not image:
+        return ""
+    if "@" in image or ":" in image.rsplit("/", 1)[-1]:
+        return image  # already has a tag/digest
+    tag = str(config.get("tag") or "latest").strip() or "latest"
+    return f"{image}:{tag}"
 
-    restart = config.get("restart_policy") or "unless-stopped"
-    service["restart"] = restart
+
+def render_compose(config: dict[str, Any]) -> dict[str, Any]:
+    """Build a single-service compose dict from a full install config."""
+    name = safe_name(config.get("name") or config.get("title") or "")
+    service: dict[str, Any] = {"image": full_image(config), "container_name": name}
+    service["restart"] = config.get("restart_policy") or "unless-stopped"
 
     ports: list[str] = []
     for p in config.get("ports") or []:
@@ -68,7 +76,7 @@ def render_compose(image: str, config: dict[str, Any]) -> dict[str, Any]:
         cont = str(p.get("container_port") or "").strip()
         proto = p.get("protocol") or "tcp"
         if not cont or not host:
-            continue  # unpublished ports are omitted
+            continue
         ports.append(f"{host}:{cont}/{proto}" if proto != "tcp" else f"{host}:{cont}")
     if ports:
         service["ports"] = ports
@@ -83,25 +91,46 @@ def render_compose(image: str, config: dict[str, Any]) -> dict[str, Any]:
         src = str(v.get("source") or "").strip()
         if not cont or not src:
             continue
-        ro = ":ro" if v.get("readonly") else ""
-        volumes.append(f"{src}:{cont}{ro}")
+        volumes.append(f"{src}:{cont}:ro" if v.get("readonly") else f"{src}:{cont}")
     if volumes:
         service["volumes"] = volumes
 
+    devices = [
+        f"{d['host']}:{d['container']}" if d.get("container") else str(d.get("host"))
+        for d in config.get("devices") or []
+        if d.get("host")
+    ]
+    if devices:
+        service["devices"] = devices
+
+    caps = [c for c in (config.get("cap_add") or []) if c]
+    if caps:
+        service["cap_add"] = caps
+
+    command = str(config.get("command") or "").strip()
+    if command:
+        service["command"] = command
+
+    if config.get("privileged"):
+        service["privileged"] = True
+
+    mem = config.get("mem_limit_mb")
+    if mem:
+        service["mem_limit"] = f"{int(mem)}m"
+
+    cpu = config.get("cpu_shares")
+    if cpu:
+        service["cpu_shares"] = int(cpu)
+
     network = (config.get("network") or "").strip()
     compose: dict[str, Any] = {"services": {name: service}}
-    if network in ("host", "none"):
+    if network in ("host", "none") or network.startswith("container:"):
         service["network_mode"] = network
     elif network and network != "bridge":
         service["networks"] = [network]
         compose["networks"] = {network: {"external": True}}
 
-    # Named volumes (source has no path separator) get declared at top level.
-    named = {
-        v.split(":", 1)[0]
-        for v in volumes
-        if "/" not in v.split(":", 1)[0]
-    }
+    named = {v.split(":", 1)[0] for v in volumes if "/" not in v.split(":", 1)[0]}
     if named:
         compose["volumes"] = {n: {} for n in named}
 
@@ -116,6 +145,11 @@ def to_yaml(compose: dict[str, Any]) -> str:
 
 def validate(config: dict[str, Any], required_env: list[str] | None = None) -> dict[str, Any]:
     issues: list[dict[str, str]] = []
+
+    if not str(config.get("image") or "").strip():
+        issues.append({"level": "error", "field": "image", "message": "Docker image is required."})
+    if not str(config.get("title") or config.get("name") or "").strip():
+        issues.append({"level": "error", "field": "title", "message": "Title is required."})
 
     # Host-port conflicts + duplicates within the config.
     used = used_host_ports()

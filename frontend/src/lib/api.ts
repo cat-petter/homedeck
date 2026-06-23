@@ -398,14 +398,33 @@ export interface InstallVolume {
   source: string
   readonly?: boolean
 }
+export interface InstallDevice {
+  host: string
+  container: string
+}
 export interface InstallConfig {
+  title: string
   name: string
   image: string
-  restart_policy: string
+  tag: string
+  icon: string
+  web_ui_lan: string
+  web_ui_tailscale: string
   network: string
   ports: InstallPort[]
   env: InstallEnv[]
   volumes: InstallVolume[]
+  devices: InstallDevice[]
+  command: string
+  privileged: boolean
+  mem_limit_mb: number | null
+  cpu_shares: number | null
+  restart_policy: string
+  cap_add: string[]
+}
+export interface NetworkOption {
+  value: string
+  label: string
 }
 export interface ValidationIssue {
   level: string
@@ -437,6 +456,7 @@ export const api = {
   listContainers: () => request<ContainerSummary[]>('/api/docker/containers'),
   inspectContainer: (id: string) =>
     request<ContainerInspect>(`/api/docker/containers/${encodeURIComponent(id)}/inspect`),
+  dockerNetworks: () => request<{ options: NetworkOption[] }>('/api/docker/networks'),
   containerAction: (id: string, action: DockerAction) =>
     request<{ ok: boolean }>(`/api/docker/containers/${encodeURIComponent(id)}/${action}`, {
       method: 'POST',

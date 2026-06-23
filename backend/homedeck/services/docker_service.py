@@ -44,6 +44,28 @@ def ping() -> bool:
         raise DockerUnavailable(str(exc)) from exc
 
 
+def network_options() -> list[dict[str, str]]:
+    """Network choices for the install form: built-ins, user networks, and
+    running containers (to share a container's netns, e.g. route via gluetun)."""
+    options: list[dict[str, str]] = [
+        {"value": "bridge", "label": "bridge (default)"},
+        {"value": "host", "label": "host"},
+        {"value": "none", "label": "none"},
+    ]
+    builtin = {"bridge", "host", "none"}
+    try:
+        client = get_client()
+        for n in client.networks.list():
+            if n.name and n.name not in builtin:
+                driver = (n.attrs or {}).get("Driver", "")
+                options.append({"value": n.name, "label": f"{n.name} ({driver or 'network'})"})
+        for c in client.containers.list():
+            options.append({"value": f"container:{c.name}", "label": f"{c.name} (share container network)"})
+    except DockerException as exc:
+        raise DockerUnavailable(str(exc)) from exc
+    return options
+
+
 # --- Serialization helpers --------------------------------------------------
 
 def _format_ports(container: Container) -> list[dict[str, Any]]:

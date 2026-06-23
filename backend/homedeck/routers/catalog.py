@@ -59,14 +59,11 @@ async def sync(_user: User = Depends(get_current_user)) -> dict[str, Any]:
 
 @router.post("/render")
 def render(req: RenderRequest, _user: User = Depends(get_current_user)) -> dict[str, Any]:
-    t = csvc.get_template(req.template_id)
-    if t is None:
-        raise HTTPException(status_code=404, detail="Template not found")
-    image = req.config.get("image") or t.get("image") or ""
-    if not image:
-        raise HTTPException(status_code=400, detail="No image to render (stack templates aren't installable yet)")
-    required = [e["name"] for e in (t.get("spec") or {}).get("env", []) if e.get("required")]
-    compose_dict = compose.render_compose(image, req.config)
+    # template_id is optional context for deriving required env; the config
+    # itself carries the image (with separate tag).
+    t = csvc.get_template(req.template_id) if req.template_id else None
+    required = [e["name"] for e in (t.get("spec") or {}).get("env", []) if e.get("required")] if t else []
+    compose_dict = compose.render_compose(req.config)
     return {
         "compose_yaml": compose.to_yaml(compose_dict),
         "validation": compose.validate(req.config, required_env=required),
