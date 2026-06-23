@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api, type CatalogStatus, type CatalogTemplate } from '../lib/api'
+import { ApiError, api, type CatalogApp, type CatalogStatus } from '../lib/api'
 import { formatUptime } from '../lib/format'
 import { AppIcon } from '../components/AppIcon'
 import { TemplateDetailDrawer } from '../components/TemplateDetailDrawer'
@@ -7,13 +7,13 @@ import { TemplateDetailDrawer } from '../components/TemplateDetailDrawer'
 export function Store() {
   const [status, setStatus] = useState<CatalogStatus | null>(null)
   const [cats, setCats] = useState<{ name: string; count: number }[]>([])
-  const [items, setItems] = useState<CatalogTemplate[] | null>(null)
+  const [items, setItems] = useState<CatalogApp[] | null>(null)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<CatalogApp | null>(null)
 
   const loadMeta = () => {
     api.catalogStatus().then(setStatus).catch(() => {})
@@ -125,24 +125,29 @@ export function Store() {
             <>
               <p className="text-xs text-slate-400">{total} result{total === 1 ? '' : 's'}</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((t) => (
+                {items.map((a) => (
                   <button
-                    key={t.id}
+                    key={a.app_group}
                     type="button"
-                    onClick={() => setSelected(t.id)}
+                    onClick={() => setSelected(a)}
                     className="flex gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-sky-400 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-600"
                   >
-                    <AppIcon icon={t.logo} size={40} />
+                    <AppIcon icon={a.logo} size={40} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="truncate font-medium text-slate-900 dark:text-slate-100">{t.name}</span>
-                        {t.kind === 'stack' && (
-                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                        <span className="truncate font-medium text-slate-900 dark:text-slate-100">{a.name}</span>
+                        {a.variant_count > 1 && (
+                          <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                            {a.variant_count} variants
+                          </span>
+                        )}
+                        {a.kind === 'stack' && (
+                          <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
                             stack
                           </span>
                         )}
                       </div>
-                      <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{t.description}</p>
+                      <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{a.description}</p>
                     </div>
                   </button>
                 ))}
@@ -152,7 +157,7 @@ export function Store() {
         </>
       )}
 
-      <TemplateDetailDrawer templateId={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <TemplateDetailDrawer app={selected} open={!!selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

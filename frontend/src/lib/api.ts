@@ -345,8 +345,27 @@ export interface CatalogTemplate {
   updated_at: string | null
   spec?: TemplateSpec
 }
+export interface CatalogVariant {
+  id: string
+  image: string
+  image_key: string
+  source: string
+}
+export interface CatalogApp {
+  app_group: string
+  name: string
+  description: string
+  logo: string
+  categories: string[]
+  kind: string
+  primary_id: string
+  sources: string[]
+  variant_count: number
+  variants: CatalogVariant[]
+}
 export interface CatalogStatus {
   total: number
+  variants?: number
   last_synced: string | null
   by_source: Record<string, number>
 }
@@ -438,7 +457,7 @@ export const api = {
     if (params.category) q.set('category', params.category)
     if (params.source) q.set('source', params.source)
     const qs = q.toString()
-    return request<{ total: number; items: CatalogTemplate[] }>(
+    return request<{ total: number; items: CatalogApp[] }>(
       `/api/catalog/templates${qs ? `?${qs}` : ''}`,
     )
   },

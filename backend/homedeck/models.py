@@ -103,6 +103,9 @@ class CatalogTemplate(SQLModel, table=True):
     logo: str = Field(default="")
     image: str = Field(default="")
     image_key: str = Field(default="", index=True)
+    # Slug of the app name; templates sharing an app_group with different
+    # image_keys are variants (official vs linuxserver, etc.).
+    app_group: str = Field(default="", index=True)
     kind: str = Field(default="container")  # container | stack
     categories: list = Field(default_factory=list, sa_column=Column(JSON))
     spec: dict = Field(default_factory=dict, sa_column=Column(JSON))
