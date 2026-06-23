@@ -114,6 +114,13 @@ def _parse_env_portainer(raw: Any) -> list[dict[str, Any]]:
         select_opts = e.get("select")
         options = None
         default = e.get("default")
+        # Portainer's `set` is a fixed preset value (not user-configurable). Treat
+        # it as a preset default so the var carries its value and isn't flagged
+        # as a required-but-empty field.
+        set_val = e.get("set")
+        is_preset = bool(e.get("preset")) or set_val is not None
+        if set_val is not None and default is None:
+            default = set_val
         if isinstance(select_opts, list):
             options = [{"text": o.get("text", o.get("value")), "value": o.get("value")} for o in select_opts]
             if default is None:
@@ -124,8 +131,8 @@ def _parse_env_portainer(raw: Any) -> list[dict[str, Any]]:
                 "label": e.get("label") or e["name"],
                 "description": e.get("description", ""),
                 "default": "" if default is None else str(default),
-                "preset": bool(e.get("preset")),
-                "required": not e.get("preset") and (default in (None, "")),
+                "preset": is_preset,
+                "required": not is_preset and (default in (None, "")),
                 "options": options,
             }
         )

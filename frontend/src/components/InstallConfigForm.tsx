@@ -75,7 +75,7 @@ const CPU_OPTIONS = [
   { label: 'Max (4096)', value: '4096' },
 ]
 const COMMON_CAPS = ['NET_ADMIN', 'NET_RAW', 'SYS_ADMIN', 'SYS_MODULE', 'SYS_NICE', 'SYS_TIME', 'MKNOD', 'CHOWN', 'DAC_OVERRIDE']
-const MEM_MAX = 16384
+const MEM_FALLBACK_MAX = 16384 // MB, until the host's total RAM is detected
 
 export function InstallConfigForm({
   template,
@@ -91,6 +91,7 @@ export function InstallConfigForm({
   const [error, setError] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
   const [networks, setNetworks] = useState<NetworkOption[]>([])
+  const [memMax, setMemMax] = useState(MEM_FALLBACK_MAX)
 
   useEffect(() => {
     if (!open || !template?.spec) return
@@ -120,6 +121,14 @@ export function InstallConfigForm({
         .catch(() => {})
     }
     api.dockerNetworks().then((r) => setNetworks(r.options)).catch(() => {})
+    // Cap the memory-limit slider at the host's total RAM.
+    api
+      .metricsCurrent()
+      .then((m) => {
+        const totalMb = Math.floor(m.memory.total / (1024 * 1024))
+        if (totalMb > 0) setMemMax(totalMb)
+      })
+      .catch(() => {})
   }, [open, template])
 
   useEffect(() => {
@@ -241,9 +250,19 @@ export function InstallConfigForm({
                 onRemove={(i) => patch({ env: config.env.filter((_, j) => j !== i) })}
                 render={(e, i) => (
                   <>
-                    <input value={e.name} onChange={(ev) => patch({ env: config.env.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)) })} placeholder="NAME" className={`w-40 font-mono ${inp} ${issuesByField[`env:${e.name}`] ? 'border-red-500' : ''}`} />
-                    <span className="text-slate-400">=</span>
-                    <input value={e.value} onChange={(ev) => patch({ env: config.env.map((x, j) => (j === i ? { ...x, value: ev.target.value } : x)) })} placeholder="value" className={`flex-1 ${inp}`} title={e.description} />
+                    <input
+                      value={e.name ? `${e.name}=${e.value}` : ''}
+                      onChange={(ev) => {
+                        const raw = ev.target.value
+                        const eq = raw.indexOf('=')
+                        const name = eq >= 0 ? raw.slice(0, eq) : raw
+                        const value = eq >= 0 ? raw.slice(eq + 1) : ''
+                        patch({ env: config.env.map((x, j) => (j === i ? { ...x, name, value } : x)) })
+                      }}
+                      placeholder="NAME=value"
+                      className={`flex-1 font-mono ${inp} ${issuesByField[`env:${e.name}`] ? 'border-red-500' : ''}`}
+                      title={e.description}
+                    />
                     {e.required && <span className="text-[10px] text-red-500">req</span>}
                   </>
                 )}
@@ -282,8 +301,8 @@ export function InstallConfigForm({
 
               <label className="flex items-center gap-2"><input type="checkbox" checked={config.privileged} onChange={(e) => patch({ privileged: e.target.checked })} /><span className="text-slate-700 dark:text-slate-300">Privileged mode</span></label>
 
-              <Field label={`Memory limit: ${config.mem_limit_mb ? `${config.mem_limit_mb} MB` : 'Unlimited'}`}>
-                <input type="range" min={0} max={MEM_MAX} step={256} value={config.mem_limit_mb ?? 0} onChange={(e) => patch({ mem_limit_mb: Number(e.target.value) || null })} className="w-full" />
+              <Field label={`Memory limit: ${config.mem_limit_mb ? `${config.mem_limit_mb} MB` : 'Unlimited'}`} hint={`Host total: ${memMax} MB`}>
+                <input type="range" min={0} max={memMax} step={256} value={Math.min(config.mem_limit_mb ?? 0, memMax)} onChange={(e) => patch({ mem_limit_mb: Number(e.target.value) || null })} className="w-full" />
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
