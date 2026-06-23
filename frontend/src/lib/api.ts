@@ -272,6 +272,21 @@ export interface ServiceData extends ServiceInput {
   uptime_24h: number | null
 }
 
+export interface DiscoverySuggestion {
+  container_id: string
+  container_name: string
+  image: string
+  name: string
+  category: string
+  icon_url: string
+  url: string
+  port: number | null
+  scheme: string | null
+  http_status?: number | null
+  source: 'label' | 'probe'
+  already_added: boolean
+}
+
 export interface ServiceHistory {
   service_id: number
   hours: number
@@ -344,5 +359,9 @@ export const api = {
     request<ServiceData>(`/api/health/services/${id}/check`, { method: 'POST' }),
   serviceHistory: (id: number, hours = 24) =>
     request<ServiceHistory>(`/api/health/services/${id}/history?hours=${hours}`),
+
+  // Discovery
+  discoverySuggestions: () =>
+    request<{ suggestions: DiscoverySuggestion[] }>('/api/discovery/suggestions'),
 }
 

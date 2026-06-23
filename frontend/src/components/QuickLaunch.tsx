@@ -6,10 +6,12 @@ import { getAccessMode, pickServiceUrl } from '../lib/access'
 import { StatusDot } from './StatusDot'
 import { AppIcon } from './AppIcon'
 import { ServiceForm } from './ServiceForm'
+import { DiscoverModal } from './DiscoverModal'
 
 export function QuickLaunch() {
   const { services, refresh } = useHealthStatus()
   const [formOpen, setFormOpen] = useState(false)
+  const [discoverOpen, setDiscoverOpen] = useState(false)
   const mode = getAccessMode()
   const anyDual = (services ?? []).some((s) => s.lan_url && s.tailscale_url)
 
@@ -30,6 +32,13 @@ export function QuickLaunch() {
           <Link to="/health" className="font-medium text-slate-500 hover:underline dark:text-slate-400">
             Manage
           </Link>
+          <button
+            type="button"
+            onClick={() => setDiscoverOpen(true)}
+            className="font-medium text-violet-600 hover:underline dark:text-violet-400"
+          >
+            Discover apps
+          </button>
           <button
             type="button"
             onClick={() => setFormOpen(true)}
@@ -57,6 +66,7 @@ export function QuickLaunch() {
       )}
 
       <ServiceForm open={formOpen} existing={null} onClose={() => setFormOpen(false)} onSaved={refresh} />
+      <DiscoverModal open={discoverOpen} onClose={() => setDiscoverOpen(false)} onAdded={refresh} />
     </section>
   )
 }
