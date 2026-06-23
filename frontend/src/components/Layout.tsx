@@ -9,6 +9,7 @@ const NAV = [
   { to: '/docker', label: 'Docker', end: false },
   { to: '/system', label: 'System', end: false },
   { to: '/health', label: 'Health', end: false },
+  { to: '/store', label: 'App Store', end: false },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

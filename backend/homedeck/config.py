@@ -56,6 +56,22 @@ class SessionConfig(BaseModel):
     lifetime_hours: int = 24 * 14
 
 
+class CatalogConfig(BaseModel):
+    # Public Portainer-format template sources (v2 int-type or v3 string-type).
+    # Defaults to the canonical Portainer list; add more URLs to enrich the store.
+    portainer_template_urls: list[str] = Field(
+        default_factory=lambda: [
+            "https://raw.githubusercontent.com/portainer/templates/master/templates.json"
+        ]
+    )
+    # CasaOS AppStore repo tarball (parsed in a later step).
+    casaos_appstore_tarball: str = (
+        "https://github.com/IceWhaleTech/CasaOS-AppStore/archive/refs/heads/main.tar.gz"
+    )
+    enable_casaos: bool = False
+    fetch_timeout_seconds: int = 20
+
+
 class Settings(BaseSettings):
     """Top-level settings, assembled from defaults -> yaml -> environment."""
 
@@ -73,6 +89,7 @@ class Settings(BaseSettings):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     docker: DockerConfig = Field(default_factory=DockerConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
+    catalog: CatalogConfig = Field(default_factory=CatalogConfig)
 
     @classmethod
     def settings_customise_sources(

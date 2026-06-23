@@ -295,6 +295,70 @@ export interface ServiceHistory {
   samples: { ts: string; status: HealthStatus; response_ms: number | null; error: string | null }[]
 }
 
+// --- Catalog / app store types ----------------------------------------------
+
+export interface TemplatePort {
+  container_port: string
+  host_port: string | null
+  protocol: string
+}
+export interface TemplateVolume {
+  container_path: string
+  bind: string | null
+  readonly: boolean
+  type: string
+}
+export interface TemplateEnv {
+  name: string
+  label: string
+  description: string
+  default: string
+  preset: boolean
+  required: boolean
+  options: { text: string; value: string }[] | null
+}
+export interface TemplateSpec {
+  ports: TemplatePort[]
+  volumes: TemplateVolume[]
+  env: TemplateEnv[]
+  restart_policy: string
+  command: string
+  network: string
+  hostname: string
+  privileged: boolean
+  repository: { url?: string; stackfile?: string } | null
+  platform: string
+  note: string
+}
+export interface CatalogTemplate {
+  id: string
+  source: string
+  source_url: string
+  name: string
+  description: string
+  logo: string
+  image: string
+  image_key: string
+  kind: string
+  categories: string[]
+  sources: { catalog: string; url: string }[]
+  updated_at: string | null
+  spec?: TemplateSpec
+}
+export interface CatalogStatus {
+  total: number
+  last_synced: string | null
+  by_source: Record<string, number>
+}
+export interface SyncSummary {
+  imported: number
+  updated: number
+  skipped: number
+  total: number
+  sources: { source: string; url: string; templates: number }[]
+  errors: { url: string; error: string }[]
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -363,5 +427,23 @@ export const api = {
   // Discovery
   discoverySuggestions: () =>
     request<{ suggestions: DiscoverySuggestion[] }>('/api/discovery/suggestions'),
+
+  // Catalog / app store
+  catalogStatus: () => request<CatalogStatus>('/api/catalog/status'),
+  catalogCategories: () =>
+    request<{ categories: { name: string; count: number }[] }>('/api/catalog/categories'),
+  catalogTemplates: (params: { search?: string; category?: string; source?: string } = {}) => {
+    const q = new URLSearchParams()
+    if (params.search) q.set('search', params.search)
+    if (params.category) q.set('category', params.category)
+    if (params.source) q.set('source', params.source)
+    const qs = q.toString()
+    return request<{ total: number; items: CatalogTemplate[] }>(
+      `/api/catalog/templates${qs ? `?${qs}` : ''}`,
+    )
+  },
+  catalogTemplate: (id: string) =>
+    request<CatalogTemplate>(`/api/catalog/templates/${encodeURIComponent(id)}`),
+  catalogSync: () => request<SyncSummary>('/api/catalog/sync', { method: 'POST' }),
 }
 

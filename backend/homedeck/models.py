@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -82,6 +83,31 @@ class ServiceCheckResult(SQLModel, table=True):
     status: str  # up | degraded | down
     response_ms: float | None = None
     error: str | None = None
+
+
+class CatalogTemplate(SQLModel, table=True):
+    """A normalized installable-app template imported from a public catalog.
+
+    One internal schema for all sources; `spec` holds the normalized
+    ports/env/volumes/etc. `image_key` (registry/repo, tag stripped) is the
+    dedup key used by the normalization pipeline.
+    """
+
+    __tablename__ = "catalog_templates"
+
+    id: str = Field(primary_key=True)  # e.g. "portainer:adguard"
+    source: str = Field(index=True)  # portainer | casaos
+    source_url: str = Field(default="")
+    name: str = Field(index=True)
+    description: str = Field(default="")
+    logo: str = Field(default="")
+    image: str = Field(default="")
+    image_key: str = Field(default="", index=True)
+    kind: str = Field(default="container")  # container | stack
+    categories: list = Field(default_factory=list, sa_column=Column(JSON))
+    spec: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    sources: list = Field(default_factory=list, sa_column=Column(JSON))
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class MetricSample(SQLModel, table=True):

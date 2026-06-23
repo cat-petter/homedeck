@@ -8,6 +8,7 @@ import { Docker } from './pages/Docker'
 import { Metrics } from './pages/Metrics'
 import { Storage } from './pages/Storage'
 import { Health } from './pages/Health'
+import { Store } from './pages/Store'
 import { Login } from './pages/Login'
 import { Setup } from './pages/Setup'
 
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/system" element={<Metrics />} />
         <Route path="/storage" element={<Storage />} />
         <Route path="/health" element={<Health />} />
+        <Route path="/store" element={<Store />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
