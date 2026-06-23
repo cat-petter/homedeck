@@ -378,6 +378,45 @@ export interface SyncSummary {
   errors: { url: string; error: string }[]
 }
 
+// --- Install config / compose render ----------------------------------------
+
+export interface InstallPort {
+  container_port: string
+  protocol: string
+  host_port: string
+}
+export interface InstallEnv {
+  name: string
+  value: string
+  label?: string
+  description?: string
+  required?: boolean
+}
+export interface InstallVolume {
+  container_path: string
+  type: string
+  source: string
+  readonly?: boolean
+}
+export interface InstallConfig {
+  name: string
+  image: string
+  restart_policy: string
+  network: string
+  ports: InstallPort[]
+  env: InstallEnv[]
+  volumes: InstallVolume[]
+}
+export interface ValidationIssue {
+  level: string
+  field: string
+  message: string
+}
+export interface RenderResult {
+  compose_yaml: string
+  validation: { ok: boolean; issues: ValidationIssue[] }
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -464,5 +503,10 @@ export const api = {
   catalogTemplate: (id: string) =>
     request<CatalogTemplate>(`/api/catalog/templates/${encodeURIComponent(id)}`),
   catalogSync: () => request<SyncSummary>('/api/catalog/sync', { method: 'POST' }),
+  catalogRender: (template_id: string, config: InstallConfig) =>
+    request<RenderResult>('/api/catalog/render', {
+      method: 'POST',
+      body: JSON.stringify({ template_id, config }),
+    }),
 }
 

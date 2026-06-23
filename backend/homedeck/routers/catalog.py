@@ -6,12 +6,19 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from ..models import User
 from ..security import get_current_user
 from ..services import catalog_service as csvc
+from ..services import compose_service as compose
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
+
+
+class RenderRequest(BaseModel):
+    template_id: str
+    config: dict[str, Any]
 
 
 @router.get("/status")
@@ -48,3 +55,19 @@ def get_template(template_id: str, _user: User = Depends(get_current_user)) -> d
 async def sync(_user: User = Depends(get_current_user)) -> dict[str, Any]:
     # Network fetch can take a few seconds; run off the event loop.
     return await asyncio.to_thread(csvc.sync)
+
+
+@router.post("/render")
+def render(req: RenderRequest, _user: User = Depends(get_current_user)) -> dict[str, Any]:
+    t = csvc.get_template(req.template_id)
+    if t is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+    image = req.config.get("image") or t.get("image") or ""
+    if not image:
+        raise HTTPException(status_code=400, detail="No image to render (stack templates aren't installable yet)")
+    required = [e["name"] for e in (t.get("spec") or {}).get("env", []) if e.get("required")]
+    compose_dict = compose.render_compose(image, req.config)
+    return {
+        "compose_yaml": compose.to_yaml(compose_dict),
+        "validation": compose.validate(req.config, required_env=required),
+    }

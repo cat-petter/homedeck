@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { ApiError, api, type CatalogApp, type CatalogTemplate } from '../lib/api'
 import { Modal } from './Modal'
 import { AppIcon } from './AppIcon'
+import { InstallConfigForm } from './InstallConfigForm'
 
-// Read-only template detail (browse). For apps with multiple image variants
-// (e.g. official vs linuxserver), a selector switches between them. Configure-
-// and-install is wired in a later step; the button is present but disabled.
+// Template detail (browse). For apps with multiple image variants (official vs
+// linuxserver) a selector switches between them. "Configure & install" opens the
+// pre-install config form.
 export function TemplateDetailDrawer({
   app,
   open,
@@ -18,6 +19,7 @@ export function TemplateDetailDrawer({
   const [t, setT] = useState<CatalogTemplate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [variantId, setVariantId] = useState<string | null>(null)
+  const [configuring, setConfiguring] = useState(false)
 
   useEffect(() => {
     if (open && app) setVariantId(app.primary_id)
@@ -163,14 +165,17 @@ export function TemplateDetailDrawer({
         <div className="border-t border-slate-200 p-4 dark:border-slate-800">
           <button
             type="button"
-            disabled
-            title="Configuration form & deploy land in the next step"
-            className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+            disabled={!t || t.kind === 'stack' || !t.image}
+            onClick={() => setConfiguring(true)}
+            title={t?.kind === 'stack' ? 'Compose-stack templates are not installable yet' : undefined}
+            className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
           >
-            Configure &amp; install — coming next
+            {t?.kind === 'stack' ? 'Stack install — coming later' : 'Configure & install'}
           </button>
         </div>
       </div>
+
+      <InstallConfigForm template={t} open={configuring} onClose={() => setConfiguring(false)} />
     </Modal>
   )
 }
