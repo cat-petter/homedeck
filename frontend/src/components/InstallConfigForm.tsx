@@ -117,6 +117,7 @@ export function InstallConfigForm({
   onDeployed,
   editApp,
   seed,
+  imageOverride,
 }: {
   template: CatalogTemplate | null
   open: boolean
@@ -127,6 +128,9 @@ export function InstallConfigForm({
   // When set (and not editing), pre-fill a fresh install from a non-catalog
   // image (e.g. a Docker Hub search result).
   seed?: InstallConfig | null
+  // When set, substitute the catalog template's image with this one (the
+  // original 404'd on Docker Hub and was auto-remapped). Shown disclaimed.
+  imageOverride?: { repo: string; reason: string } | null
 }) {
   const [config, setConfig] = useState<InstallConfig | null>(null)
   const [render, setRender] = useState<RenderResult | null>(null)
@@ -141,6 +145,12 @@ export function InstallConfigForm({
     if (!open) return
     if (!editApp && !seed && !template?.spec) return
     const c = editApp ? editApp.config : seed ? seed : initConfig(template!)
+    // Auto-substitute a renamed/removed image for a fresh catalog install.
+    if (!editApp && !seed && imageOverride?.repo) {
+      const { image, tag } = splitImage(imageOverride.repo)
+      c.image = image
+      c.tag = tag
+    }
     setConfig(c)
     setRender(null)
     setError(null)
@@ -175,7 +185,7 @@ export function InstallConfigForm({
         })
         .catch(() => {})
     }
-  }, [open, template, editApp, seed])
+  }, [open, template, editApp, seed, imageOverride])
 
   const tplId = template?.id ?? editApp?.template_id ?? ''
 
@@ -242,6 +252,14 @@ export function InstallConfigForm({
 
         <div className="flex-1 overflow-y-auto p-4">
           {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+
+          {!editApp && !seed && imageOverride?.repo && (
+            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+              ⚠ The catalog's original image was not found on Docker Hub, so it was
+              auto-substituted with <span className="font-mono">{imageOverride.repo}</span> ({imageOverride.reason}){' '}
+              Double-check it's the right project before deploying — you can edit the image field below.
+            </div>
+          )}
 
           {raw ? (
             <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-200">{render?.compose_yaml ?? 'Rendering…'}</pre>

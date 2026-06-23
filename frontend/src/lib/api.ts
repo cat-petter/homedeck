@@ -496,6 +496,11 @@ export interface HubInspect {
   tags: HubTag[]
   suggested: { title: string; icon: string; web_port: number | null }
 }
+export interface ImageReplacement {
+  repo: string
+  source: 'curated' | 'search'
+  reason: string
+}
 export interface ImageStatus {
   checked: boolean
   exists?: boolean
@@ -504,6 +509,7 @@ export interface ImageStatus {
   message?: string
   registry?: string
   error?: string
+  replacement?: ImageReplacement | null
 }
 
 export const api = {

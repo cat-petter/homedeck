@@ -50,6 +50,8 @@ export function TemplateDetailDrawer({
 
   const imgWarning =
     imgStatus?.checked && (imgStatus.exists === false || imgStatus.stale) ? imgStatus.message : null
+  // Auto-substitution: only when the original image is gone AND we found one.
+  const replacement = imgStatus?.exists === false ? imgStatus.replacement ?? null : null
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="tpl-title">
@@ -77,6 +79,13 @@ export function TemplateDetailDrawer({
               {imgWarning && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
                   ⚠ {imgWarning}
+                  {replacement && (
+                    <>
+                      {' '}Installing will use <span className="font-mono">{replacement.repo}</span> instead
+                      ({replacement.reason}){' '}
+                      {replacement.source === 'search' && '— unverified guess, please confirm.'}
+                    </>
+                  )}
                 </div>
               )}
               {t.description && <p className="text-slate-600 dark:text-slate-300">{t.description}</p>}
@@ -198,6 +207,7 @@ export function TemplateDetailDrawer({
 
       <InstallConfigForm
         template={t}
+        imageOverride={replacement ? { repo: replacement.repo, reason: replacement.reason } : null}
         open={configuring}
         onClose={() => setConfiguring(false)}
         onDeployed={() => {

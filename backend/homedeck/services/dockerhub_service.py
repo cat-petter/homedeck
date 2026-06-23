@@ -14,9 +14,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Any
 
-from ..config import get_settings
+from ..config import REPO_ROOT, get_settings
 from .app_metadata import app_metadata, parse_image
 
 _HUB = "https://hub.docker.com/v2"
@@ -25,10 +26,21 @@ _UA = "HomeDeck-hub/1.0"
 _README_MAX = 8000
 # Images not pushed in this long are flagged as likely stale.
 _STALE_DAYS = 730
+_RENAMES_FILE = REPO_ROOT / "catalog" / "overrides" / "image-renames.json"
 
 
 class HubError(RuntimeError):
     pass
+
+
+@lru_cache(maxsize=1)
+def _curated_renames() -> dict[str, str]:
+    """Hand-verified old-repo -> new-repo remaps from catalog/overrides."""
+    try:
+        data = json.loads(_RENAMES_FILE.read_text(encoding="utf-8"))
+        return {k.lower(): v for k, v in (data.get("renames") or {}).items()}
+    except (OSError, ValueError):
+        return {}
 
 
 def _timeout() -> int:
@@ -139,12 +151,56 @@ def inspect(repo: str) -> dict[str, Any]:
     }
 
 
+# --- Replacement resolution (for renamed/removed images) --------------------
+
+def _repo_exists(repo: str) -> bool:
+    try:
+        _get_json(f"{_HUB}/repositories/{repo}/")
+        return True
+    except HubError:
+        return False
+
+
+def find_replacement(image_ref: str) -> dict[str, Any] | None:
+    """Suggest a current image for one that 404s on Docker Hub.
+
+    Order: hand-verified curated remap, then a best-effort Hub name search.
+    Always returned with a ``source``/``reason`` so the UI can disclaim it.
+    """
+    parsed = parse_image(image_ref)
+    if parsed["registry"] != "docker.io":
+        return None
+    original = parsed["repository"]
+
+    curated = _curated_renames().get(original.lower())
+    if curated and _repo_exists(curated):
+        return {"repo": curated, "source": "curated", "reason": "Hand-verified rename."}
+
+    # Heuristic: search Hub by the app slug and take the most relevant existing
+    # repo that isn't the (now-gone) original. Low confidence — hence disclaimed.
+    slug = parsed["slug"]
+    try:
+        results = search(slug, limit=5).get("results", [])
+    except HubError:
+        results = []
+    for r in results:
+        cand = parse_image(r["repo"])["repository"]
+        if cand.lower() != original.lower():
+            return {
+                "repo": r["repo"],
+                "source": "search",
+                "reason": f"Closest Docker Hub match for “{slug}”.",
+            }
+    return None
+
+
 # --- Freshness signal (for catalog entries) ---------------------------------
 
 def image_status(image_ref: str) -> dict[str, Any]:
     """Lightweight existence/freshness check for a catalog image on Docker Hub.
 
     Returns ``checked: False`` for non-Hub registries (we can't speak to those).
+    When an image is gone, attaches a ``replacement`` suggestion if one is found.
     """
     parsed = parse_image(image_ref)
     if parsed["registry"] != "docker.io":
@@ -155,8 +211,13 @@ def image_status(image_ref: str) -> dict[str, Any]:
     except HubError as exc:
         msg = str(exc)
         if "404" in msg:
-            return {"checked": True, "exists": False, "stale": False,
-                    "message": "Image not found on Docker Hub — likely renamed or removed."}
+            return {
+                "checked": True,
+                "exists": False,
+                "stale": False,
+                "message": "Image not found on Docker Hub — likely renamed or removed.",
+                "replacement": find_replacement(image_ref),
+            }
         return {"checked": False, "error": msg}
     last = _parse_dt(data.get("last_updated"))
     stale = False

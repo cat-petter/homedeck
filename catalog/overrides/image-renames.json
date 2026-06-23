@@ -1,0 +1,7 @@
+{
+  "_comment": "Curated remaps for Docker images that were renamed/moved and now 404 on Docker Hub. Keys are the old repo (no tag, lowercase, library/ for official); values are the current repo. These are high-confidence, hand-verified substitutions (old 404s, new exists, same project). HomeDeck auto-substitutes the new image at install time but always shows a disclaimer so the user can verify. Images not listed here fall back to a best-effort Docker Hub name search.",
+  "renames": {
+    "hacdias/filemanager": "filebrowser/filebrowser",
+    "linuxserver/hass": "homeassistant/home-assistant"
+  }
+}
