@@ -14,6 +14,39 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^[-_.]+|[-_.]+$/g, '') || 'app'
 }
 
+// Build a fresh InstallConfig for a non-catalog image (e.g. a Docker Hub result).
+export function blankInstallConfig(p: {
+  title: string
+  image: string
+  tag?: string
+  icon?: string
+  webPort?: number | null
+}): InstallConfig {
+  const ports = p.webPort
+    ? [{ host_port: String(p.webPort), container_port: String(p.webPort), protocol: 'tcp' }]
+    : []
+  return {
+    title: p.title,
+    name: slugify(p.title),
+    image: p.image,
+    tag: p.tag || 'latest',
+    icon: p.icon || '',
+    web_ui_lan: '',
+    web_ui_tailscale: '',
+    network: 'bridge',
+    ports,
+    env: [],
+    volumes: [],
+    devices: [],
+    command: '',
+    privileged: false,
+    mem_limit_mb: null,
+    cpu_shares: null,
+    restart_policy: 'unless-stopped',
+    cap_add: [],
+  }
+}
+
 function splitImage(ref: string): { image: string; tag: string } {
   if (!ref) return { image: '', tag: 'latest' }
   const lastSeg = ref.split('/').pop() || ref
@@ -83,6 +116,7 @@ export function InstallConfigForm({
   onClose,
   onDeployed,
   editApp,
+  seed,
 }: {
   template: CatalogTemplate | null
   open: boolean
@@ -90,6 +124,9 @@ export function InstallConfigForm({
   onDeployed?: () => void
   // When set, the form edits an existing app instead of installing a new one.
   editApp?: { id: number; template_id: string; config: InstallConfig } | null
+  // When set (and not editing), pre-fill a fresh install from a non-catalog
+  // image (e.g. a Docker Hub search result).
+  seed?: InstallConfig | null
 }) {
   const [config, setConfig] = useState<InstallConfig | null>(null)
   const [render, setRender] = useState<RenderResult | null>(null)
@@ -102,8 +139,8 @@ export function InstallConfigForm({
 
   useEffect(() => {
     if (!open) return
-    if (!editApp && !template?.spec) return
-    const c = editApp ? editApp.config : initConfig(template!)
+    if (!editApp && !seed && !template?.spec) return
+    const c = editApp ? editApp.config : seed ? seed : initConfig(template!)
     setConfig(c)
     setRender(null)
     setError(null)
@@ -138,7 +175,7 @@ export function InstallConfigForm({
         })
         .catch(() => {})
     }
-  }, [open, template, editApp])
+  }, [open, template, editApp, seed])
 
   const tplId = template?.id ?? editApp?.template_id ?? ''
 

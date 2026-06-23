@@ -465,6 +465,47 @@ export interface DeployResult extends InstalledApp {
   output: string
 }
 
+// --- Docker Hub fallback ----------------------------------------------------
+
+export interface HubSearchResult {
+  repo: string
+  description: string
+  stars: number
+  pulls: number | null
+  is_official: boolean
+  is_automated: boolean
+  icon: string
+}
+export interface HubTag {
+  name: string
+  last_updated: string | null
+  size: number | null
+  architectures: string[]
+}
+export interface HubInspect {
+  repo: string
+  namespace: string
+  name: string
+  description: string
+  readme: string
+  readme_truncated: boolean
+  stars: number
+  pulls: number | null
+  is_official: boolean
+  last_updated: string | null
+  tags: HubTag[]
+  suggested: { title: string; icon: string; web_port: number | null }
+}
+export interface ImageStatus {
+  checked: boolean
+  exists?: boolean
+  stale?: boolean
+  last_updated?: string
+  message?: string
+  registry?: string
+  error?: string
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -579,5 +620,15 @@ export const api = {
       `/api/apps/${id}${deleteData ? '?delete_data=true' : ''}`,
       { method: 'DELETE' },
     ),
+
+  // Docker Hub fallback
+  hubSearch: (q: string, limit = 25) =>
+    request<{ count: number; results: HubSearchResult[] }>(
+      `/api/hub/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+  hubInspect: (repo: string) =>
+    request<HubInspect>(`/api/hub/repos/${repo.split('/').map(encodeURIComponent).join('/')}`),
+  hubImageStatus: (image: string) =>
+    request<ImageStatus>(`/api/hub/image-status?image=${encodeURIComponent(image)}`),
 }
 

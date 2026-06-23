@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api, type CatalogApp, type CatalogTemplate } from '../lib/api'
+import { ApiError, api, type CatalogApp, type CatalogTemplate, type ImageStatus } from '../lib/api'
 import { Modal } from './Modal'
 import { AppIcon } from './AppIcon'
 import { InstallConfigForm } from './InstallConfigForm'
@@ -22,6 +22,7 @@ export function TemplateDetailDrawer({
   const [error, setError] = useState<string | null>(null)
   const [variantId, setVariantId] = useState<string | null>(null)
   const [configuring, setConfiguring] = useState(false)
+  const [imgStatus, setImgStatus] = useState<ImageStatus | null>(null)
 
   useEffect(() => {
     if (open && app) setVariantId(app.primary_id)
@@ -31,11 +32,24 @@ export function TemplateDetailDrawer({
     if (!open || !variantId) return
     setT(null)
     setError(null)
+    setImgStatus(null)
     api
       .catalogTemplate(variantId)
-      .then(setT)
+      .then((tpl) => {
+        setT(tpl)
+        // Best-effort freshness check against Docker Hub (skips non-Hub images).
+        if (tpl.image) {
+          api
+            .hubImageStatus(tpl.image)
+            .then(setImgStatus)
+            .catch(() => {})
+        }
+      })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load template'))
   }, [open, variantId])
+
+  const imgWarning =
+    imgStatus?.checked && (imgStatus.exists === false || imgStatus.stale) ? imgStatus.message : null
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="tpl-title">
@@ -60,6 +74,11 @@ export function TemplateDetailDrawer({
           {!t && !error && <p className="text-slate-400">Loading…</p>}
           {t && (
             <div className="space-y-5">
+              {imgWarning && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                  ⚠ {imgWarning}
+                </div>
+              )}
               {t.description && <p className="text-slate-600 dark:text-slate-300">{t.description}</p>}
 
               {app && app.variant_count > 1 && (
