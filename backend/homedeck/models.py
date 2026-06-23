@@ -113,6 +113,35 @@ class CatalogTemplate(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class InstalledApp(SQLModel, table=True):
+    """A Docker app deployed by HomeDeck from the app store.
+
+    Each app is a single-service compose project written to ``data/apps/<name>/``
+    and brought up with ``docker compose``. ``config`` keeps the full install
+    config so the app can be reconfigured (re-rendered + recreated) later.
+    """
+
+    __tablename__ = "installed_apps"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)  # compose project + container name (slug)
+    title: str = Field(default="")
+    image: str = Field(default="")
+    icon: str = Field(default="")
+    web_ui_lan: str = Field(default="")
+    web_ui_tailscale: str = Field(default="")
+    template_id: str = Field(default="")  # provenance: catalog template it came from
+    compose_dir: str = Field(default="")  # directory holding docker-compose.yml
+    compose_yaml: str = Field(default="")
+    config: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    # Linked quick-launch tile (services.id), auto-created when a Web UI is set.
+    service_id: int | None = Field(default=None)
+    status: str = Field(default="unknown")  # running | stopped | error | unknown
+    last_error: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class MetricSample(SQLModel, table=True):
     """A periodic host-metrics snapshot for the ~24h history charts."""
 

@@ -3,6 +3,7 @@ import { ApiError, api, type CatalogApp, type CatalogStatus } from '../lib/api'
 import { formatUptime } from '../lib/format'
 import { AppIcon } from '../components/AppIcon'
 import { TemplateDetailDrawer } from '../components/TemplateDetailDrawer'
+import { InstalledApps } from '../components/InstalledApps'
 
 export function Store() {
   const [status, setStatus] = useState<CatalogStatus | null>(null)
@@ -14,6 +15,7 @@ export function Store() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<CatalogApp | null>(null)
+  const [appsRefresh, setAppsRefresh] = useState(0)
 
   const loadMeta = () => {
     api.catalogStatus().then(setStatus).catch(() => {})
@@ -87,6 +89,8 @@ export function Store() {
         </div>
       )}
 
+      <InstalledApps refreshSignal={appsRefresh} />
+
       {empty ? (
         <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
           <p className="text-slate-500 dark:text-slate-400">The catalog is empty.</p>
@@ -157,7 +161,12 @@ export function Store() {
         </>
       )}
 
-      <TemplateDetailDrawer app={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <TemplateDetailDrawer
+        app={selected}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        onDeployed={() => setAppsRefresh((n) => n + 1)}
+      />
     </div>
   )
 }

@@ -81,10 +81,15 @@ export function InstallConfigForm({
   template,
   open,
   onClose,
+  onDeployed,
+  editApp,
 }: {
   template: CatalogTemplate | null
   open: boolean
   onClose: () => void
+  onDeployed?: () => void
+  // When set, the form edits an existing app instead of installing a new one.
+  editApp?: { id: number; template_id: string; config: InstallConfig } | null
 }) {
   const [config, setConfig] = useState<InstallConfig | null>(null)
   const [render, setRender] = useState<RenderResult | null>(null)
@@ -92,17 +97,30 @@ export function InstallConfigForm({
   const [raw, setRaw] = useState(false)
   const [networks, setNetworks] = useState<NetworkOption[]>([])
   const [memMax, setMemMax] = useState(MEM_FALLBACK_MAX)
+  const [deploying, setDeploying] = useState(false)
+  const [deployError, setDeployError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open || !template?.spec) return
-    const c = initConfig(template)
+    if (!open) return
+    if (!editApp && !template?.spec) return
+    const c = editApp ? editApp.config : initConfig(template!)
     setConfig(c)
     setRender(null)
     setError(null)
     setRaw(false)
-    // Autofill the web-UI URLs from the first published port + detected IPs.
+    setDeployError(null)
+    api.dockerNetworks().then((r) => setNetworks(r.options)).catch(() => {})
+    api
+      .metricsCurrent()
+      .then((m) => {
+        const totalMb = Math.floor(m.memory.total / (1024 * 1024))
+        if (totalMb > 0) setMemMax(totalMb)
+      })
+      .catch(() => {})
+    // Autofill the web-UI URLs from the first published port + detected IPs —
+    // only for a fresh install (an edited app already carries its own URLs).
     const firstPort = c.ports.find((p) => p.host_port)?.host_port
-    if (firstPort) {
+    if (!editApp && !c.web_ui_lan && !c.web_ui_tailscale && firstPort) {
       api
         .systemInfo()
         .then((info) => {
@@ -120,27 +138,20 @@ export function InstallConfigForm({
         })
         .catch(() => {})
     }
-    api.dockerNetworks().then((r) => setNetworks(r.options)).catch(() => {})
-    // Cap the memory-limit slider at the host's total RAM.
-    api
-      .metricsCurrent()
-      .then((m) => {
-        const totalMb = Math.floor(m.memory.total / (1024 * 1024))
-        if (totalMb > 0) setMemMax(totalMb)
-      })
-      .catch(() => {})
-  }, [open, template])
+  }, [open, template, editApp])
+
+  const tplId = template?.id ?? editApp?.template_id ?? ''
 
   useEffect(() => {
     if (!config) return
     const h = setTimeout(() => {
       api
-        .catalogRender(template?.id ?? '', config)
+        .catalogRender(tplId, config)
         .then(setRender)
         .catch((e) => setError(e instanceof ApiError ? e.message : 'Render failed'))
     }, 300)
     return () => clearTimeout(h)
-  }, [config, template])
+  }, [config, tplId])
 
   const issuesByField = useMemo(() => {
     const m: Record<string, string[]> = {}
@@ -148,9 +159,31 @@ export function InstallConfigForm({
     return m
   }, [render])
 
-  if (!config || !template) return null
+  if (!config) return null
+  const appName = config.title || template?.name || 'app'
   const patch = (p: Partial<InstallConfig>) => setConfig({ ...config, ...p })
   const okToInstall = render?.validation.ok ?? false
+
+  async function doDeploy() {
+    if (!config || deploying) return
+    setDeploying(true)
+    setDeployError(null)
+    try {
+      if (editApp) await api.reconfigureApp(editApp.id, config)
+      else await api.deployApp(tplId, config)
+      onDeployed?.()
+      onClose()
+    } catch (e) {
+      if (e instanceof ApiError) {
+        const d = e.detail as { output?: string } | null
+        setDeployError(e.message + (d?.output ? `\n\n${d.output}` : ''))
+      } else {
+        setDeployError('Deploy failed')
+      }
+    } finally {
+      setDeploying(false)
+    }
+  }
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="install-title">
@@ -159,7 +192,7 @@ export function InstallConfigForm({
           <div className="flex min-w-0 items-center gap-3">
             <AppIcon icon={config.icon} size={32} />
             <h2 id="install-title" className="truncate font-semibold text-slate-900 dark:text-slate-100">
-              Configure {config.title || template.name}
+              {editApp ? 'Reconfigure' : 'Configure'} {appName}
             </h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
@@ -327,8 +360,24 @@ export function InstallConfigForm({
               {render.validation.issues.map((i, k) => <li key={k}>• {i.message}</li>)}
             </ul>
           )}
-          <button type="button" disabled title="Deploy lands in the next step" className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-            {okToInstall ? 'Deploy — coming next' : 'Resolve issues to deploy'}
+          {deployError && (
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">{deployError}</pre>
+          )}
+          <button
+            type="button"
+            disabled={!okToInstall || deploying}
+            onClick={doDeploy}
+            className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
+          >
+            {deploying
+              ? editApp
+                ? 'Saving…'
+                : 'Deploying…'
+              : okToInstall
+                ? editApp
+                  ? 'Save & recreate'
+                  : `Deploy ${appName}`
+                : 'Resolve issues to deploy'}
           </button>
         </div>
       </div>

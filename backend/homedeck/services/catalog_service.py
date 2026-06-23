@@ -482,11 +482,15 @@ def _app_from_variants(variants: list[CatalogTemplate]) -> dict[str, Any]:
                 cats.append(c)
         if t.source not in sources:
             sources.append(t.source)
+    # Description and logo come from whichever variant has the richest one,
+    # independent of which variant is "primary" for spec richness.
+    description = max((t.description or "" for t in variants), key=len)
+    logo = primary.logo or next((t.logo for t in variants if t.logo), "")
     return {
         "app_group": primary.app_group or primary.id,
         "name": primary.name,
-        "description": primary.description,
-        "logo": primary.logo,
+        "description": description,
+        "logo": logo,
         "categories": cats,
         "kind": primary.kind,
         "primary_id": primary.id,

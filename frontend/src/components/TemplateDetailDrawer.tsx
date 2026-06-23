@@ -11,10 +11,12 @@ export function TemplateDetailDrawer({
   app,
   open,
   onClose,
+  onDeployed,
 }: {
   app: CatalogApp | null
   open: boolean
   onClose: () => void
+  onDeployed?: () => void
 }) {
   const [t, setT] = useState<CatalogTemplate | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -175,7 +177,16 @@ export function TemplateDetailDrawer({
         </div>
       </div>
 
-      <InstallConfigForm template={t} open={configuring} onClose={() => setConfiguring(false)} />
+      <InstallConfigForm
+        template={t}
+        open={configuring}
+        onClose={() => setConfiguring(false)}
+        onDeployed={() => {
+          setConfiguring(false)
+          onClose()
+          onDeployed?.()
+        }}
+      />
     </Modal>
   )
 }

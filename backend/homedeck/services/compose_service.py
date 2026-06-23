@@ -143,7 +143,11 @@ def to_yaml(compose: dict[str, Any]) -> str:
 
 # --- Validate ---------------------------------------------------------------
 
-def validate(config: dict[str, Any], required_env: list[str] | None = None) -> dict[str, Any]:
+def validate(
+    config: dict[str, Any],
+    required_env: list[str] | None = None,
+    ignore_host_ports: set[int] | None = None,
+) -> dict[str, Any]:
     issues: list[dict[str, str]] = []
 
     if not str(config.get("image") or "").strip():
@@ -151,8 +155,10 @@ def validate(config: dict[str, Any], required_env: list[str] | None = None) -> d
     if not str(config.get("title") or config.get("name") or "").strip():
         issues.append({"level": "error", "field": "title", "message": "Title is required."})
 
-    # Host-port conflicts + duplicates within the config.
-    used = used_host_ports()
+    # Host-port conflicts + duplicates within the config. When reconfiguring an
+    # existing app, its own currently-published ports are passed in
+    # ``ignore_host_ports`` so the app doesn't conflict with itself.
+    used = used_host_ports() - (ignore_host_ports or set())
     seen: dict[int, str] = {}
     for p in config.get("ports") or []:
         hp = str(p.get("host_port") or "").strip()

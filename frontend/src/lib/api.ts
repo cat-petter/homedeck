@@ -3,9 +3,11 @@
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  detail: unknown
+  constructor(status: number, message: string, detail?: unknown) {
     super(message)
     this.status = status
+    this.detail = detail
     this.name = 'ApiError'
   }
 }
@@ -33,11 +35,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    const detail =
+    const rawDetail =
       data && typeof data === 'object' && 'detail' in data
-        ? String((data as { detail: unknown }).detail)
-        : res.statusText || 'Request failed'
-    throw new ApiError(res.status, detail)
+        ? (data as { detail: unknown }).detail
+        : null
+    // `detail` may be a string or a structured object (e.g. {message, output}).
+    const message =
+      typeof rawDetail === 'string'
+        ? rawDetail
+        : rawDetail && typeof rawDetail === 'object' && 'message' in rawDetail
+          ? String((rawDetail as { message: unknown }).message)
+          : res.statusText || 'Request failed'
+    throw new ApiError(res.status, message, rawDetail)
   }
   return data as T
 }
@@ -436,6 +445,26 @@ export interface RenderResult {
   validation: { ok: boolean; issues: ValidationIssue[] }
 }
 
+export interface InstalledApp {
+  id: number
+  name: string
+  title: string
+  image: string
+  icon: string
+  web_ui_lan: string
+  web_ui_tailscale: string
+  template_id: string
+  service_id: number | null
+  status: string // running | stopped | error | unknown
+  last_error: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface DeployResult extends InstalledApp {
+  output: string
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -528,5 +557,27 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ template_id, config }),
     }),
+
+  // Installed apps
+  listApps: () => request<{ apps: InstalledApp[] }>('/api/apps'),
+  getApp: (id: number) =>
+    request<InstalledApp & { config: InstallConfig; compose_yaml: string }>(`/api/apps/${id}`),
+  deployApp: (template_id: string, config: InstallConfig) =>
+    request<DeployResult>('/api/apps/deploy', {
+      method: 'POST',
+      body: JSON.stringify({ template_id, config }),
+    }),
+  reconfigureApp: (id: number, config: InstallConfig) =>
+    request<DeployResult>(`/api/apps/${id}/reconfigure`, {
+      method: 'POST',
+      body: JSON.stringify({ config }),
+    }),
+  startApp: (id: number) => request<InstalledApp>(`/api/apps/${id}/start`, { method: 'POST' }),
+  stopApp: (id: number) => request<InstalledApp>(`/api/apps/${id}/stop`, { method: 'POST' }),
+  removeApp: (id: number, deleteData = false) =>
+    request<{ ok: boolean; output: string }>(
+      `/api/apps/${id}${deleteData ? '?delete_data=true' : ''}`,
+      { method: 'DELETE' },
+    ),
 }
 
