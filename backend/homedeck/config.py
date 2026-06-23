@@ -58,10 +58,19 @@ class SessionConfig(BaseModel):
 
 class CatalogConfig(BaseModel):
     # Public Portainer-format template sources (v2 int-type or v3 string-type).
-    # Defaults to the canonical Portainer list; add more URLs to enrich the store.
+    # A few well-known, reputable community lists ship enabled by default; the
+    # normalize/dedup pipeline merges overlap across them. (Per-source toggles
+    # and a UI to add your own land with the Settings page.)
     portainer_template_urls: list[str] = Field(
         default_factory=lambda: [
-            "https://raw.githubusercontent.com/portainer/templates/master/templates.json"
+            # Canonical Portainer list.
+            "https://raw.githubusercontent.com/portainer/templates/master/templates.json",
+            # Lissy93 (Alicia Sykes, Awesome-Selfhosted) — large aggregated list.
+            "https://raw.githubusercontent.com/Lissy93/portainer-templates/main/templates.json",
+            # SelfhostedPro — the classic community selfhosted templates.
+            "https://raw.githubusercontent.com/SelfhostedPro/selfhosted_templates/master/Template/template.json",
+            # Qballjos — long-running community template collection.
+            "https://raw.githubusercontent.com/Qballjos/portainer_templates/master/Template/template.json",
         ]
     )
     # CasaOS AppStore repo tarball (parsed in a later step).

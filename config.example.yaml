@@ -33,9 +33,13 @@ catalog:
   # App-store sources. Add more Portainer-format template URLs to enrich the
   # store; overlapping apps are merged (same image) or grouped as variants
   # (same name, different image) by the dedup pipeline.
+  # A few reputable community lists ship enabled by default (per-source toggles
+  # come with the Settings page). Comment out any you don't want.
   portainer_template_urls:
     - https://raw.githubusercontent.com/portainer/templates/master/templates.json
-    # - https://raw.githubusercontent.com/Qballjos/portainer_templates/master/Template/template.json
+    - https://raw.githubusercontent.com/Lissy93/portainer-templates/main/templates.json
+    - https://raw.githubusercontent.com/SelfhostedPro/selfhosted_templates/master/Template/template.json
+    - https://raw.githubusercontent.com/Qballjos/portainer_templates/master/Template/template.json
   # CasaOS AppStore (≈166 apps). Off by default: enabling it fetches ~167 files
   # per sync (the full repo tarball is huge, so HomeDeck pulls compose files
   # individually). Turn on for a much richer catalog.
