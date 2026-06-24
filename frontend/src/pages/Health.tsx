@@ -171,31 +171,31 @@ function ServiceRow({
           <Metric label="Checked" value={s.last_checked_at ? `${formatUptime(s.last_checked_at)} ago` : '—'} />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-col items-stretch gap-1">
           {url && (
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="rounded-md px-2 py-1 text-xs font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40"
+              className="rounded-md px-2 py-1 text-left text-xs font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40"
             >
               Open ↗
             </a>
           )}
           {s.check_type !== 'none' && (
             <>
-              <button type="button" onClick={onCheck} className="rounded-md px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+              <button type="button" onClick={onCheck} className="rounded-md px-2 py-1 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
                 Check
               </button>
-              <button type="button" onClick={onToggle} className="rounded-md px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+              <button type="button" onClick={onToggle} className="rounded-md px-2 py-1 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
                 {expanded ? 'Hide' : 'History'}
               </button>
             </>
           )}
-          <button type="button" onClick={onEdit} className="rounded-md px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+          <button type="button" onClick={onEdit} className="rounded-md px-2 py-1 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
             Edit
           </button>
-          <button type="button" onClick={onDelete} className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+          <button type="button" onClick={onDelete} className="rounded-md px-2 py-1 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
             Delete
           </button>
         </div>
