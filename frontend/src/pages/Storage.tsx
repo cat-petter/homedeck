@@ -10,6 +10,7 @@ import {
 import { formatBytes, formatPercent } from '../lib/format'
 import { Meter } from '../components/Meter'
 import { InfoTip } from '../components/InfoTip'
+import { SkeletonLines } from '../components/Skeleton'
 
 const RECLAIMABLE_HELP =
   'Reclaimable = space you would free by deleting unused Docker objects (what `docker system prune` recovers): ' +
@@ -351,7 +352,7 @@ function Section({
 }
 
 function Loading() {
-  return <p className="text-sm text-slate-400">Loading…</p>
+  return <SkeletonLines count={4} />
 }
 
 function Err({ children }: { children: React.ReactNode }) {

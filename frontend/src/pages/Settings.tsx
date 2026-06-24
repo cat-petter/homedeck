@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type CatalogSource, type SyncSummary } from '../lib/api'
 import { InstallPasswordModal } from '../components/InstallPasswordModal'
+import { SkeletonLines } from '../components/Skeleton'
 
 export function Settings() {
   return (
@@ -175,7 +176,7 @@ function CatalogSourcesCard() {
       desc="Where the Docker app store gets its catalog. Toggle, add, or remove sources — overlapping apps are merged automatically."
     >
       {!sources ? (
-        <p className="text-sm text-slate-400">Loading…</p>
+        <SkeletonLines count={4} />
       ) : (
         <div className="space-y-2">
           {sources.map((s, i) => (

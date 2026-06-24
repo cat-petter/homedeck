@@ -13,6 +13,7 @@ import { formatBytes, formatDuration, formatPercent, formatRate } from '../lib/f
 import { useDockerStatus } from '../lib/useDockerStatus'
 import { Meter } from '../components/Meter'
 import { ChartLegend, LineChart, type Series } from '../components/LineChart'
+import { SkeletonLines } from '../components/Skeleton'
 
 function useLiveMetrics() {
   const [snap, setSnap] = useState<MetricsSnapshot | null>(null)
@@ -156,7 +157,7 @@ export function Metrics() {
 
         <Card title="Disks" className="sm:col-span-2" action={<Link to="/storage" className="text-xs font-medium text-sky-600 hover:underline dark:text-sky-400">Storage details →</Link>}>
           {!snap ? (
-            <p className="text-sm text-slate-400">…</p>
+            <SkeletonLines count={3} />
           ) : snap.disks.length === 0 ? (
             <p className="text-sm text-slate-400">No mounted disks detected.</p>
           ) : (

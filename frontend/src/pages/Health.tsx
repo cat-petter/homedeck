@@ -4,6 +4,7 @@ import { useHealthStatus } from '../lib/useHealthStatus'
 import { pickServiceUrl } from '../lib/access'
 import { formatUptime } from '../lib/format'
 import { STATUS_LABEL, StatusDot } from '../components/StatusDot'
+import { SkeletonList } from '../components/Skeleton'
 import { AppIcon } from '../components/AppIcon'
 import { ServiceForm } from '../components/ServiceForm'
 import { ConfirmDialog, type ConfirmOptions } from '../components/ConfirmDialog'
@@ -83,7 +84,7 @@ export function Health() {
       )}
 
       {!services ? (
-        <p className="text-slate-500 dark:text-slate-400">Loading…</p>
+        <SkeletonList rows={3} />
       ) : services.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
           <p className="text-slate-500 dark:text-slate-400">No services yet.</p>
