@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 from contextlib import contextmanager
 from typing import Any
@@ -292,6 +293,95 @@ async def ws_logs(websocket: WebSocket, container_id: str, tail: int = 200) -> N
             except Exception:  # noqa: BLE001
                 pass
         for t in (pump_task, watch_task):
+            t.cancel()
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass
+
+
+# --- WebSocket: interactive shell (web terminal) ----------------------------
+
+@router.websocket("/ws/exec/{container_id}")
+async def ws_exec(websocket: WebSocket, container_id: str) -> None:
+    """Bidirectional TTY into a running container.
+
+    Server → client: raw terminal output (binary frames).
+    Client → server: JSON text — {"type":"input","data":...} keystrokes, or
+    {"type":"resize","rows":R,"cols":C}.
+    """
+    await websocket.accept()
+    user = await authenticate_websocket(websocket)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    loop = asyncio.get_running_loop()
+    try:
+        exec_id = await asyncio.to_thread(dsvc.exec_create_shell, container_id)
+        _holder, raw = await asyncio.to_thread(dsvc.exec_start_socket, exec_id)
+    except NotFound:
+        await websocket.send_json({"type": "error", "detail": "Container not found"})
+        await websocket.close()
+        return
+    except (DockerUnavailable, APIError) as exc:
+        await websocket.send_json({"type": "error", "detail": exc.explanation if hasattr(exc, "explanation") else str(exc)})
+        await websocket.close()
+        return
+
+    raw.setblocking(True)
+    queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+    stop = threading.Event()
+
+    def _reader() -> None:
+        try:
+            while not stop.is_set():
+                data = raw.recv(4096)
+                if not data:  # shell exited / EOF
+                    break
+                loop.call_soon_threadsafe(queue.put_nowait, data)
+        except OSError:
+            pass
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    threading.Thread(target=_reader, name=f"exec-{container_id[:12]}", daemon=True).start()
+
+    async def _pump() -> None:
+        while True:
+            item = await queue.get()
+            if item is None:
+                return
+            await websocket.send_bytes(item)
+
+    async def _recv() -> None:
+        while True:
+            msg = await websocket.receive_text()
+            try:
+                m = json.loads(msg)
+            except ValueError:
+                continue
+            if m.get("type") == "input":
+                await asyncio.to_thread(raw.sendall, str(m.get("data") or "").encode("utf-8", "ignore"))
+            elif m.get("type") == "resize":
+                try:
+                    await asyncio.to_thread(dsvc.exec_resize, exec_id, int(m.get("rows", 24)), int(m.get("cols", 80)))
+                except Exception:  # noqa: BLE001 - resize is best-effort
+                    pass
+
+    pump_task = asyncio.create_task(_pump())
+    recv_task = asyncio.create_task(_recv())
+    try:
+        await asyncio.wait({pump_task, recv_task}, return_when=asyncio.FIRST_COMPLETED)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        stop.set()
+        try:
+            raw.close()  # unblocks the reader thread's recv
+        except OSError:
+            pass
+        for t in (pump_task, recv_task):
             t.cancel()
         try:
             await websocket.close()

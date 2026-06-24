@@ -332,3 +332,30 @@ def log_stream(container_id: str, tail: int = 200, timestamps: bool = False):
         stdout=True,
         stderr=True,
     )
+
+
+# --- Interactive exec (web terminal) ----------------------------------------
+
+def exec_create_shell(container_id: str) -> str:
+    """Create an interactive TTY exec running bash (falling back to sh)."""
+    api = get_client().api
+    return api.exec_create(
+        container_id,
+        cmd=["/bin/sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"],
+        tty=True,
+        stdin=True,
+        stdout=True,
+        stderr=True,
+        environment={"TERM": "xterm-256color"},
+    )["Id"]
+
+
+def exec_start_socket(exec_id: str):
+    """Start the exec and return (holder, raw_socket) for bidirectional I/O."""
+    sock = get_client().api.exec_start(exec_id, tty=True, detach=False, stream=False, socket=True)
+    raw = getattr(sock, "_sock", sock)
+    return sock, raw
+
+
+def exec_resize(exec_id: str, rows: int, cols: int) -> None:
+    get_client().api.exec_resize(exec_id, height=rows, width=cols)

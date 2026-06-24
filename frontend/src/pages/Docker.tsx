@@ -1,10 +1,14 @@
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { ApiError, api, type ContainerSummary, type DockerAction } from '../lib/api'
 import { formatBytes, formatPercent, formatUptime } from '../lib/format'
 import { useDockerStatus } from '../lib/useDockerStatus'
 import { ConfirmDialog, type ConfirmOptions } from '../components/ConfirmDialog'
 import { LogsDrawer } from '../components/LogsDrawer'
 import { InspectDrawer } from '../components/InspectDrawer'
+// Lazy: pulls in xterm.js only when a terminal is actually opened.
+const TerminalDrawer = lazy(() =>
+  import('../components/TerminalDrawer').then((m) => ({ default: m.TerminalDrawer })),
+)
 
 const STATE_STYLES: Record<string, string> = {
   running: 'bg-emerald-500',
@@ -21,6 +25,7 @@ export function Docker() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [logsFor, setLogsFor] = useState<ContainerSummary | null>(null)
   const [inspectFor, setInspectFor] = useState<ContainerSummary | null>(null)
+  const [termFor, setTermFor] = useState<ContainerSummary | null>(null)
   const [confirm, setConfirm] = useState<{ options: ConfirmOptions; run: () => Promise<void> } | null>(null)
 
   const setContainerBusy = useCallback((id: string, v: boolean) => {
@@ -165,6 +170,7 @@ export function Docker() {
                         ) : (
                           <ActionBtn onClick={() => doAction(c, 'start')} busy={isBusy}>Start</ActionBtn>
                         )}
+                        {running && <ActionBtn onClick={() => setTermFor(c)}>Terminal</ActionBtn>}
                         <ActionBtn onClick={() => setLogsFor(c)}>Logs</ActionBtn>
                         <ActionBtn onClick={() => setInspectFor(c)}>Inspect</ActionBtn>
                         <ActionBtn onClick={() => askRemove(c)} danger busy={isBusy}>Remove</ActionBtn>
@@ -193,6 +199,16 @@ export function Docker() {
           containerName={inspectFor.name}
           onClose={() => setInspectFor(null)}
         />
+      )}
+      {termFor && (
+        <Suspense fallback={null}>
+          <TerminalDrawer
+            open={!!termFor}
+            containerId={termFor.id}
+            name={termFor.name}
+            onClose={() => setTermFor(null)}
+          />
+        </Suspense>
       )}
       <ConfirmDialog
         open={!!confirm}
