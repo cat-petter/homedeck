@@ -10,6 +10,7 @@ const NAV = [
   { to: '/system', label: 'System', end: false },
   { to: '/health', label: 'Health', end: false },
   { to: '/store', label: 'App Store', end: false },
+  { to: '/settings', label: 'Settings', end: false },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

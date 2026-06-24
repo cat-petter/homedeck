@@ -395,21 +395,24 @@ def sync() -> dict[str, Any]:
     summary: dict[str, Any] = {"imported": 0, "updated": 0, "skipped": 0, "merged": 0, "variant_groups": 0, "sources": [], "errors": []}
     entries: list[dict[str, Any]] = []
 
-    for url in _settings.catalog.portainer_template_urls:
-        try:
-            got = fetch_portainer(url)
-            entries.extend(got)
-            summary["sources"].append({"source": "portainer", "url": url, "templates": len(got)})
-        except Exception as exc:  # noqa: BLE001 - surface fetch/parse errors verbatim
-            summary["errors"].append({"url": url, "error": str(exc)})
+    # Effective sources come from the Settings page (DB) if configured, else the
+    # config defaults. Each is toggleable, so we only fetch enabled ones.
+    from . import settings_service
 
-    if _settings.catalog.enable_casaos:
+    for src in settings_service.get_catalog_sources():
+        if not src.get("enabled"):
+            continue
         try:
-            got = fetch_casaos()
+            if src["kind"] == "casaos":
+                got = fetch_casaos()
+                label = settings_service.CASAOS_URL
+            else:
+                got = fetch_portainer(src["url"])
+                label = src["url"]
             entries.extend(got)
-            summary["sources"].append({"source": "casaos", "url": f"https://github.com/{_CASAOS_REPO}", "templates": len(got)})
-        except Exception as exc:  # noqa: BLE001
-            summary["errors"].append({"url": "casaos", "error": str(exc)})
+            summary["sources"].append({"source": src["kind"], "url": label, "templates": len(got)})
+        except Exception as exc:  # noqa: BLE001 - surface fetch/parse errors verbatim
+            summary["errors"].append({"url": src.get("url") or src["kind"], "error": str(exc)})
 
     canon = dedup(entries)
     summary["merged"] = len(entries) - len(canon)

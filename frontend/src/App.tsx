@@ -9,6 +9,7 @@ import { Metrics } from './pages/Metrics'
 import { Storage } from './pages/Storage'
 import { Health } from './pages/Health'
 import { Store } from './pages/Store'
+import { Settings } from './pages/Settings'
 import { Login } from './pages/Login'
 import { Setup } from './pages/Setup'
 
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/storage" element={<Storage />} />
         <Route path="/health" element={<Health />} />
         <Route path="/store" element={<Store />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

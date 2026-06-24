@@ -537,6 +537,14 @@ export interface AptPackageDetail extends AptPackage {
   origin: string
 }
 
+// --- Settings ---------------------------------------------------------------
+
+export interface CatalogSource {
+  kind: 'portainer' | 'casaos'
+  url: string
+  enabled: boolean
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -687,6 +695,14 @@ export const api = {
     request<{ ok: boolean }>('/api/install-password/verify', {
       method: 'POST',
       body: JSON.stringify({ password }),
+    }),
+
+  // Settings
+  catalogSources: () => request<{ sources: CatalogSource[] }>('/api/settings/catalog-sources'),
+  saveCatalogSources: (sources: CatalogSource[]) =>
+    request<{ sources: CatalogSource[] }>('/api/settings/catalog-sources', {
+      method: 'PUT',
+      body: JSON.stringify({ sources }),
     }),
 }
 
