@@ -1,6 +1,6 @@
 # HomeDeck WIP 🛰️
 
-# This is a project I made as a project to mess with Claude Code. Just be aware.
+# This is something I made as a project to mess with Claude Code. Just be aware.
 
 A self-hosted web dashboard to manage a homelab from the browser — Docker
 containers, host apps, system health, and an app-store-style installer for both
