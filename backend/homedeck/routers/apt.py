@@ -12,9 +12,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
-from ..db import session_scope
 from ..models import User
-from ..security import get_current_user, get_user_from_token
+from ..security import authenticate_websocket, get_current_user
 from ..services import apt_service as asvc
 from ..services import install_auth
 
@@ -42,26 +41,16 @@ async def packages(
 
 @router.get("/packages/{name}")
 async def package(name: str, _user: User = Depends(get_current_user)) -> dict[str, Any]:
-    detail = await asyncio.to_thread(asvc.package_detail, name)
+    try:
+        detail = await asyncio.to_thread(asvc.package_detail, name)
+    except asvc.AptUnavailable as exc:
+        raise HTTPException(status_code=503, detail=f"APT is busy: {exc}")
     if detail is None:
         raise HTTPException(status_code=404, detail="Package not found")
     return detail
 
 
 # --- WebSocket: run a privileged apt operation, streaming output ------------
-
-async def _ws_user(websocket: WebSocket) -> User | None:
-    from ..config import get_settings
-
-    token = websocket.cookies.get(get_settings().session.cookie_name)
-
-    def _lookup() -> User | None:
-        with session_scope() as db:
-            user = get_user_from_token(db, token)
-            return User(id=user.id, username=user.username, is_admin=user.is_admin) if user else None
-
-    return await asyncio.to_thread(_lookup)
-
 
 @router.websocket("/ws/run")
 async def ws_run(websocket: WebSocket) -> None:
@@ -73,7 +62,7 @@ async def ws_run(websocket: WebSocket) -> None:
     finish.
     """
     await websocket.accept()
-    user = await _ws_user(websocket)
+    user = await authenticate_websocket(websocket)
     if user is None:
         await websocket.close(code=4401)
         return

@@ -7,13 +7,38 @@ config, app catalog, installed-app state, metrics history).
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, DateTime, TypeDecorator
 from sqlmodel import Field, SQLModel
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class UTCDateTime(TypeDecorator):
+    """A DateTime that always round-trips as timezone-aware UTC.
+
+    SQLite stores naive datetimes, so values read back lose their tzinfo. This
+    normalizes to UTC on write and re-attaches UTC on read, so callers never have
+    to patch naive datetimes by hand.
+    """
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, _dialect: Any) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    def process_result_value(self, value: datetime | None, _dialect: Any) -> datetime | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
 class User(SQLModel, table=True):
@@ -24,7 +49,7 @@ class User(SQLModel, table=True):
     # Argon2 PHC-format hash string. Never the plaintext password.
     password_hash: str
     is_admin: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
 
 
 class AuthSession(SQLModel, table=True):
@@ -33,8 +58,8 @@ class AuthSession(SQLModel, table=True):
     # Opaque random token stored in the session cookie.
     token: str = Field(primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    created_at: datetime = Field(default_factory=utcnow)
-    expires_at: datetime
+    created_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
+    expires_at: datetime = Field(sa_type=UTCDateTime)
 
 
 class Service(SQLModel, table=True):
@@ -63,11 +88,11 @@ class Service(SQLModel, table=True):
     verify_tls: bool = Field(default=False)
     enabled: bool = Field(default=True)
     sort_order: int = Field(default=0)
-    created_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
 
     # Latest check result, updated by the engine (cheap reads, survives restart).
     last_status: str = Field(default="unknown")  # unknown | up | degraded | down
-    last_checked_at: datetime | None = Field(default=None)
+    last_checked_at: datetime | None = Field(default=None, sa_type=UTCDateTime)
     last_response_ms: float | None = Field(default=None)
     last_error: str | None = Field(default=None)
 
@@ -79,7 +104,7 @@ class ServiceCheckResult(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     service_id: int = Field(foreign_key="services.id", index=True)
-    ts: datetime = Field(default_factory=utcnow, index=True)
+    ts: datetime = Field(default_factory=utcnow, index=True, sa_type=UTCDateTime)
     status: str  # up | degraded | down
     response_ms: float | None = None
     error: str | None = None
@@ -110,7 +135,7 @@ class CatalogTemplate(SQLModel, table=True):
     categories: list = Field(default_factory=list, sa_column=Column(JSON))
     spec: dict = Field(default_factory=dict, sa_column=Column(JSON))
     sources: list = Field(default_factory=list, sa_column=Column(JSON))
-    updated_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
 
 
 class InstalledApp(SQLModel, table=True):
@@ -138,8 +163,8 @@ class InstalledApp(SQLModel, table=True):
     service_id: int | None = Field(default=None)
     status: str = Field(default="unknown")  # running | stopped | error | unknown
     last_error: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
+    updated_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
 
 
 class AppSetting(SQLModel, table=True):
@@ -153,7 +178,7 @@ class AppSetting(SQLModel, table=True):
 
     key: str = Field(primary_key=True)
     value: str = Field(default="")
-    updated_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime)
 
 
 class MetricSample(SQLModel, table=True):
@@ -162,7 +187,7 @@ class MetricSample(SQLModel, table=True):
     __tablename__ = "metric_samples"
 
     id: int | None = Field(default=None, primary_key=True)
-    ts: datetime = Field(default_factory=utcnow, index=True)
+    ts: datetime = Field(default_factory=utcnow, index=True, sa_type=UTCDateTime)
     cpu_pct: float
     mem_pct: float
     mem_used: int

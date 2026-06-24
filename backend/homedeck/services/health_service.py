@@ -108,6 +108,12 @@ async def _ping_check(host: str, timeout: float) -> tuple[str, float | None, str
     except FileNotFoundError:
         return ("down", None, "ping binary not found")
     except asyncio.TimeoutError:
+        # wait_for cancels the await but leaves the ping process running — reap it.
+        try:
+            proc.kill()
+            await proc.wait()
+        except ProcessLookupError:
+            pass
         return ("down", None, "timed out")
     if proc.returncode == 0:
         m = _PING_TIME_RE.search(out.decode("utf-8", "replace"))

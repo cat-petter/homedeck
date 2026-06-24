@@ -8,9 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from ..models import User
-from ..security import get_current_user
+from ..security import authenticate_websocket, get_current_user
 from ..services import metrics_service as msvc
-from .docker import _ws_authenticate  # shared cookie-based WS auth
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
@@ -41,7 +40,7 @@ def processes(
 @router.websocket("/ws")
 async def ws_metrics(websocket: WebSocket) -> None:
     await websocket.accept()
-    user = await _ws_authenticate(websocket)
+    user = await authenticate_websocket(websocket)
     if user is None:
         await websocket.close(code=4401)
         return

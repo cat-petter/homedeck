@@ -40,6 +40,11 @@ _EXCLUDE_SUFFIXES = ("-dev", "-dbg", "-dbgsym", "-doc", "-common", "-data",
 _lock = threading.Lock()
 _cache: apt.Cache | None = None
 _index: list[dict[str, Any]] | None = None
+_last_error: str | None = None
+
+
+class AptUnavailable(RuntimeError):
+    """The APT cache couldn't be read right now (e.g. a package op is in progress)."""
 
 
 def _section_leaf(section: str) -> str:
@@ -57,7 +62,10 @@ def _is_app_like(name: str, section: str) -> bool:
 def _get_cache() -> apt.Cache:
     global _cache
     if _cache is None:
-        _cache = apt.Cache()
+        try:
+            _cache = apt.Cache()
+        except Exception as exc:  # noqa: BLE001 - cache can be mid-rewrite during an apt op
+            raise AptUnavailable(str(exc)) from exc
     return _cache
 
 
@@ -95,9 +103,14 @@ def _build_index() -> list[dict[str, Any]]:
 
 
 def _get_index() -> list[dict[str, Any]]:
-    global _index
+    global _index, _last_error
     if _index is None:
-        _index = _build_index()
+        try:
+            _index = _build_index()
+        except AptUnavailable as exc:
+            _last_error = str(exc)
+            raise
+        _last_error = None
     return _index
 
 
@@ -121,17 +134,23 @@ def refresh() -> None:
 
 def status() -> dict[str, Any]:
     with _lock:
-        idx = _get_index()
+        try:
+            idx = _get_index()
+        except AptUnavailable:
+            return {"total": 0, "installed": 0, "upgradable": 0, "available": False, "error": _last_error}
         installed = sum(1 for p in idx if p["installed"])
         upgradable = sum(1 for p in idx if p["upgradable"])
-        return {"total": len(idx), "installed": installed, "upgradable": upgradable}
+        return {"total": len(idx), "installed": installed, "upgradable": upgradable, "available": True, "error": None}
 
 
 def search(query: str = "", installed_only: bool = False, upgradable_only: bool = False,
            limit: int = 60, offset: int = 0) -> dict[str, Any]:
     q = (query or "").strip().lower()
     with _lock:
-        idx = _get_index()
+        try:
+            idx = _get_index()
+        except AptUnavailable:
+            return {"total": 0, "items": [], "available": False, "error": _last_error}
         items = idx
         if installed_only:
             items = [p for p in items if p["installed"]]
@@ -142,7 +161,7 @@ def search(query: str = "", installed_only: bool = False, upgradable_only: bool 
             # Exact/prefix name matches first, then the rest alphabetically.
             items = sorted(items, key=lambda p: (p["name"].lower() != q, not p["name"].lower().startswith(q), p["name"]))
         total = len(items)
-        return {"total": total, "items": items[offset : offset + limit]}
+        return {"total": total, "items": items[offset : offset + limit], "available": True, "error": None}
 
 
 def package_detail(name: str) -> dict[str, Any] | None:

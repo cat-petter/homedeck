@@ -21,6 +21,12 @@ from ..config import get_settings
 _settings = get_settings()
 _client: docker.DockerClient | None = None
 
+# The status WebSocket reads container stats concurrently (see
+# routers/docker.MAX_STATS_CONCURRENCY = 16). docker-py's HTTP pool defaults to
+# 10, so without this several concurrent reads would block waiting for a socket.
+# Size it above the stats concurrency, with headroom for other in-flight calls.
+_POOL_SIZE = 24
+
 
 class DockerUnavailable(RuntimeError):
     """The Docker daemon could not be reached."""
@@ -31,7 +37,7 @@ def get_client() -> docker.DockerClient:
     global _client
     if _client is None:
         try:
-            _client = docker.DockerClient(base_url=_settings.docker.socket)
+            _client = docker.DockerClient(base_url=_settings.docker.socket, max_pool_size=_POOL_SIZE)
         except DockerException as exc:  # pragma: no cover - depends on host
             raise DockerUnavailable(str(exc)) from exc
     return _client

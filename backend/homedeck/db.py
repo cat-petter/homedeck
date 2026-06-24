@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
 
 from .config import get_settings
@@ -17,6 +18,24 @@ engine = create_engine(
     echo=False,
     connect_args={"check_same_thread": False},
 )
+
+
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_conn, _record) -> None:
+    """Per-connection SQLite tuning for concurrent access.
+
+    The background metrics/health loops write while request handlers read and
+    occasionally write (e.g. deploying an app). WAL lets readers and a writer
+    proceed concurrently; busy_timeout makes a second *writer* wait for the lock
+    instead of immediately raising "database is locked".
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA busy_timeout=5000")  # ms — wait, don't crash, on lock
+    cur.execute("PRAGMA synchronous=NORMAL")  # safe + fast under WAL
+    cur.close()
 
 
 def init_db() -> None:

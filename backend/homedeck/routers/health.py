@@ -20,9 +20,8 @@ from sqlmodel import Session, select
 
 from ..db import get_session, session_scope
 from ..models import Service, ServiceCheckResult, User
-from ..security import get_current_user
+from ..security import authenticate_websocket, get_current_user
 from ..services import health_service as hsvc
-from .docker import _ws_authenticate
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
@@ -182,7 +181,7 @@ def service_history(
 @router.websocket("/ws")
 async def ws_status(websocket: WebSocket) -> None:
     await websocket.accept()
-    user = await _ws_authenticate(websocket)
+    user = await authenticate_websocket(websocket)
     if user is None:
         await websocket.close(code=4401)
         return

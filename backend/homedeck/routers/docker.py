@@ -11,9 +11,8 @@ from docker.errors import APIError, NotFound
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from ..db import session_scope
 from ..models import User
-from ..security import get_current_user, get_user_from_token
+from ..security import authenticate_websocket, get_current_user
 from ..services import docker_service as dsvc
 from ..services.docker_service import DockerUnavailable
 
@@ -131,31 +130,12 @@ def remove_container(
     return ActionResult(ok=True, action="remove", id=container_id)
 
 
-# --- WebSocket auth helper --------------------------------------------------
-
-async def _ws_authenticate(websocket: WebSocket) -> User | None:
-    """Authenticate a WebSocket from the session cookie. Returns the user or None."""
-    from ..config import get_settings
-
-    token = websocket.cookies.get(get_settings().session.cookie_name)
-    # DB lookup is sync; keep it off the event loop.
-    def _lookup() -> User | None:
-        with session_scope() as db:
-            user = get_user_from_token(db, token)
-            if user is None:
-                return None
-            # Detach a lightweight copy; the session closes on exit.
-            return User(id=user.id, username=user.username, is_admin=user.is_admin)
-
-    return await asyncio.to_thread(_lookup)
-
-
 # --- WebSocket: live status (all containers) --------------------------------
 
 @router.websocket("/ws/status")
 async def ws_status(websocket: WebSocket) -> None:
     await websocket.accept()
-    user = await _ws_authenticate(websocket)
+    user = await authenticate_websocket(websocket)
     if user is None:
         await websocket.close(code=4401)  # application "unauthorized"
         return
@@ -216,7 +196,7 @@ async def _stats_one(container, sem: asyncio.Semaphore) -> dict[str, Any] | None
 @router.websocket("/ws/logs/{container_id}")
 async def ws_logs(websocket: WebSocket, container_id: str, tail: int = 200) -> None:
     await websocket.accept()
-    user = await _ws_authenticate(websocket)
+    user = await authenticate_websocket(websocket)
     if user is None:
         await websocket.close(code=4401)
         return
@@ -225,6 +205,33 @@ async def ws_logs(websocket: WebSocket, container_id: str, tail: int = 200) -> N
     queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=1000)
     stop = threading.Event()
     stream_holder: dict[str, Any] = {}
+    state = {"dropped": 0}
+
+    # Enqueue a log line without ever blocking the reader thread: if a chatty
+    # container outpaces the WebSocket, drop the line and count it (we surface a
+    # "[N lines dropped]" notice) rather than raise QueueFull into the loop or
+    # block forever. Runs on the loop thread via call_soon_threadsafe.
+    def _enqueue_line(line: str) -> None:
+        try:
+            queue.put_nowait(line)
+        except asyncio.QueueFull:
+            state["dropped"] += 1
+
+    # Terminal signals (error / end) must not be dropped — evict one line to make
+    # room if the queue is momentarily full.
+    def _enqueue_terminal(item: str | None) -> None:
+        try:
+            queue.put_nowait(item)
+        except asyncio.QueueFull:
+            try:
+                queue.get_nowait()
+                state["dropped"] += 1
+            except asyncio.QueueEmpty:
+                pass
+            try:
+                queue.put_nowait(item)
+            except asyncio.QueueFull:
+                pass
 
     def _reader() -> None:
         try:
@@ -234,22 +241,28 @@ async def ws_logs(websocket: WebSocket, container_id: str, tail: int = 200) -> N
                 if stop.is_set():
                     break
                 line = chunk.decode("utf-8", errors="replace") if isinstance(chunk, bytes) else str(chunk)
-                loop.call_soon_threadsafe(queue.put_nowait, line)
+                loop.call_soon_threadsafe(_enqueue_line, line)
         except NotFound:
-            loop.call_soon_threadsafe(queue.put_nowait, "__ERROR__:Container not found")
+            loop.call_soon_threadsafe(_enqueue_terminal, "__ERROR__:Container not found")
         except (DockerUnavailable, APIError) as exc:
-            loop.call_soon_threadsafe(queue.put_nowait, f"__ERROR__:{exc}")
+            loop.call_soon_threadsafe(_enqueue_terminal, f"__ERROR__:{exc}")
         except Exception as exc:  # noqa: BLE001 - surface anything else, don't hang
-            loop.call_soon_threadsafe(queue.put_nowait, f"__ERROR__:{exc}")
+            loop.call_soon_threadsafe(_enqueue_terminal, f"__ERROR__:{exc}")
         finally:
-            loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel: stream ended
+            loop.call_soon_threadsafe(_enqueue_terminal, None)  # sentinel: stream ended
 
     thread = threading.Thread(target=_reader, name=f"logs-{container_id[:12]}", daemon=True)
     thread.start()
 
     async def _pump() -> None:
+        notified = 0
         while True:
             item = await queue.get()
+            # Surface any lines dropped under backpressure since the last notice.
+            if state["dropped"] != notified:
+                lost = state["dropped"] - notified
+                notified = state["dropped"]
+                await websocket.send_json({"type": "line", "data": f"… [{lost} log line(s) dropped — output too fast]"})
             if item is None:
                 await websocket.send_json({"type": "end"})
                 return

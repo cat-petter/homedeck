@@ -7,16 +7,17 @@ avoids storing any signing secret on disk.
 
 from __future__ import annotations
 
+import asyncio
 import secrets
-from datetime import timedelta, timezone
+from datetime import timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from fastapi import Cookie, Depends, HTTPException, Response, status
+from fastapi import Cookie, Depends, HTTPException, Response, WebSocket, status
 from sqlmodel import Session, select
 
 from .config import get_settings
-from .db import get_session
+from .db import get_session, session_scope
 from .models import AuthSession, User, utcnow
 
 _ph = PasswordHasher()
@@ -88,11 +89,8 @@ def get_user_from_token(db: Session, token: str | None) -> User | None:
     if sess is None:
         return None
 
-    # SQLite returns naive datetimes; treat them as UTC for comparison.
-    expires = sess.expires_at
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires < utcnow():
+    # expires_at is stored via UTCDateTime, so it comes back tz-aware UTC.
+    if sess.expires_at < utcnow():
         db.delete(sess)
         db.commit()
         return None
@@ -113,3 +111,22 @@ def get_current_user(
 
 def admin_exists(db: Session) -> bool:
     return db.exec(select(User).limit(1)).first() is not None
+
+
+async def authenticate_websocket(websocket: WebSocket) -> User | None:
+    """Authenticate a WebSocket from the session cookie.
+
+    WebSocket routes can't use the ``Depends`` cookie machinery, so this resolves
+    the user off the event loop and returns a detached copy (the DB session is
+    closed before we return). Shared by all ``ws/*`` endpoints.
+    """
+    token = websocket.cookies.get(_settings.session.cookie_name)
+
+    def _lookup() -> User | None:
+        with session_scope() as db:
+            user = get_user_from_token(db, token)
+            if user is None:
+                return None
+            return User(id=user.id, username=user.username, is_admin=user.is_admin)
+
+    return await asyncio.to_thread(_lookup)
