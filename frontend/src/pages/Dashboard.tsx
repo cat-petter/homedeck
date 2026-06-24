@@ -2,11 +2,6 @@ import { useEffect, useState } from 'react'
 import { ApiError, api, type SystemInfo } from '../lib/api'
 import { QuickLaunch } from '../components/QuickLaunch'
 
-const PHASES = [
-  { name: 'Docker app store', desc: 'Catalogs, config forms & deploy', icon: '📦', phase: 5 },
-  { name: 'APT app store', desc: 'Debian packages via apt/AppStream', icon: '🗃️', phase: 6 },
-]
-
 // Build a LAN URL using the current origin's protocol/port (the UI is served by
 // the backend on the same port), swapping in the detected LAN IP as the host.
 function lanUrl(lanIp: string): string {
@@ -32,7 +27,7 @@ export function Dashboard() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Homelab control center — Phase 1 scaffold.
+          Homelab control center.
         </p>
       </div>
 
@@ -77,29 +72,6 @@ export function Dashboard() {
       </section>
 
       <QuickLaunch />
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Coming in later phases
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {PHASES.map((p) => (
-            <div
-              key={p.name}
-              className="rounded-xl border border-dashed border-slate-300 bg-white/50 p-4 dark:border-slate-700 dark:bg-slate-900/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">{p.icon}</span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  Phase {p.phase}
-                </span>
-              </div>
-              <h3 className="mt-2 font-semibold">{p.name}</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{p.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   )
 }
