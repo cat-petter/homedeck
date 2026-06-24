@@ -1,5 +1,7 @@
 # HomeDeck WIP 🛰️
 
+# This is a project I made as a project to mess with Claude Code. Just be aware.
+
 A self-hosted web dashboard to manage a homelab from the browser — Docker
 containers, host apps, system health, and an app-store-style installer for both
 Debian (APT) packages and Docker apps, with full pre-install configuration and
