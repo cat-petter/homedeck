@@ -1,3 +1,5 @@
+// System page: live CPU/RAM/swap/disk/net/load via the metrics WebSocket, 24h
+// history charts, and a per-container resource breakdown.
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {

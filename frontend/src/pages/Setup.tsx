@@ -1,3 +1,4 @@
+// First-run setup wizard: creates the admin account while no user exists yet.
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'

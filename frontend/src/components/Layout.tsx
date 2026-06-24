@@ -1,3 +1,5 @@
+// App shell: top navigation, theme toggle, LAN/Tailscale connection badge, and
+// log-out. Wraps every authenticated page.
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'

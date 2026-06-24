@@ -1,3 +1,5 @@
+// Docker page: live container list (status WebSocket) with start/stop/restart/
+// remove, plus per-container logs, inspect, and an interactive terminal.
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { ApiError, api, type ContainerSummary, type DockerAction } from '../lib/api'
 import { formatBytes, formatPercent, formatUptime } from '../lib/format'

@@ -1,3 +1,5 @@
+// Side drawer showing a container's full `docker inspect` (state, env, mounts,
+// networks, ports).
 import { useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { ApiError, api, type ContainerInspect } from '../lib/api'

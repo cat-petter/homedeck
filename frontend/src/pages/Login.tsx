@@ -1,3 +1,4 @@
+// Login page: posts credentials, then routes back to wherever the user was headed.
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../lib/api'

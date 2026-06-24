@@ -1,3 +1,5 @@
+// Light/dark theme toggle button. Persists the choice via lib/theme and flips the
+// `.dark` class on <html>.
 import { useState } from 'react'
 import { getTheme, toggleTheme, type Theme } from '../lib/theme'
 

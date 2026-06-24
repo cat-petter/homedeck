@@ -1,3 +1,5 @@
+// Shared health-status colors + the small status dot/label, reused by the Health
+// page and the dashboard tiles so a status looks identical everywhere.
 import type { HealthStatus } from '../lib/api'
 
 export const STATUS_COLOR: Record<HealthStatus, string> = {

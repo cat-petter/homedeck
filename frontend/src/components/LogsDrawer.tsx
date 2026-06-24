@@ -1,3 +1,5 @@
+// Side drawer that streams a container's logs live over the logs WebSocket,
+// with follow/auto-scroll.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { wsUrl } from '../lib/ws'

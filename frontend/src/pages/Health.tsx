@@ -1,3 +1,5 @@
+// Health page: manage monitored services + quick-launch tiles, with live status
+// (health WebSocket) and per-service latency/uptime history.
 import { useEffect, useState } from 'react'
 import { ApiError, api, type ServiceData, type ServiceHistory } from '../lib/api'
 import { useHealthStatus } from '../lib/useHealthStatus'

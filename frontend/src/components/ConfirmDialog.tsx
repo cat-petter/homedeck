@@ -1,3 +1,5 @@
+// Reusable confirmation dialog + useConfirm() hook — shown before destructive
+// actions (container/app/service removal, etc.).
 import { useState } from 'react'
 import { Modal } from './Modal'
 

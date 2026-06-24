@@ -1,3 +1,5 @@
+// Dashboard quick-launch tile grid, driven by the health-status WebSocket so each
+// tile shows live up/down/degraded state.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ServiceData } from '../lib/api'

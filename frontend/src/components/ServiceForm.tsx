@@ -1,3 +1,5 @@
+// Create/edit a health service (which is also a quick-launch tile): name, icon,
+// LAN/Tailscale URLs, check type/target, intervals and thresholds.
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type CheckType, type ServiceData, type ServiceInput } from '../lib/api'
 import { Modal } from './Modal'
