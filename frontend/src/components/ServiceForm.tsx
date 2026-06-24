@@ -88,7 +88,7 @@ export function ServiceForm({
           {existing ? 'Edit service' : 'Add service'}
         </h2>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Text label="Name" value={form.name} onChange={(v) => set('name', v)} required autoFocus />
           <Text label="Category" value={form.category} onChange={(v) => set('category', v)} placeholder="e.g. Media" />
           <div className="col-span-2 flex items-end gap-3">
@@ -137,7 +137,7 @@ export function ServiceForm({
                 placeholder={typeHint}
                 hint={typeHint}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Text label="Interval (s)" type="number" value={String(form.interval_seconds)} onChange={(v) => set('interval_seconds', Number(v) || 60)} />
                 <Text label="Timeout (s)" type="number" value={String(form.timeout_seconds)} onChange={(v) => set('timeout_seconds', Number(v) || 10)} />
                 {form.check_type === 'http' && (

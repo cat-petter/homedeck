@@ -265,8 +265,8 @@ export function InstallConfigForm({
             <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-200">{render?.compose_yaml ?? 'Rendering…'}</pre>
           ) : (
             <div className="space-y-5 text-sm">
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Docker image" required className="col-span-2" err={issuesByField['image']}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Docker image" required className="sm:col-span-2" err={issuesByField['image']}>
                   <input value={config.image} onChange={(e) => patch({ image: e.target.value })} placeholder="linuxserver/jellyfin" className={inp} />
                 </Field>
                 <Field label="Tag">
@@ -274,8 +274,8 @@ export function InstallConfigForm({
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Title" required className="col-span-2" err={issuesByField['title']}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Title" required className="sm:col-span-2" err={issuesByField['title']}>
                   <input value={config.title} onChange={(e) => patch({ title: e.target.value, name: slugify(e.target.value) })} className={inp} />
                 </Field>
                 <Field label="Preview">
@@ -287,7 +287,7 @@ export function InstallConfigForm({
                 <input value={config.icon} onChange={(e) => patch({ icon: e.target.value })} placeholder="https://…/icon.png" className={inp} />
               </Field>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Web UI (LAN)"><input value={config.web_ui_lan} onChange={(e) => patch({ web_ui_lan: e.target.value })} placeholder="http://192.168.1.x:PORT" className={inp} /></Field>
                 <Field label="Web UI (Tailscale)"><input value={config.web_ui_tailscale} onChange={(e) => patch({ web_ui_tailscale: e.target.value })} placeholder="http://host.ts.net:PORT" className={inp} /></Field>
               </div>
@@ -393,7 +393,7 @@ export function InstallConfigForm({
                 <input type="range" min={0} max={memMax} step={256} value={Math.min(config.mem_limit_mb ?? 0, memMax)} onChange={(e) => patch({ mem_limit_mb: Number(e.target.value) || null })} className="w-full" />
               </Field>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="CPU shares">
                   <select value={config.cpu_shares == null ? '' : String(config.cpu_shares)} onChange={(e) => patch({ cpu_shares: e.target.value ? Number(e.target.value) : null })} className={inp}>
                     {CPU_OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
@@ -472,7 +472,7 @@ function RowGroup<T>({ title, rows, onAdd, onRemove, render }: { title: string; 
         <p className="text-xs text-slate-400">None</p>
       ) : (
         rows.map((row, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex flex-wrap items-center gap-2">
             {render(row, i)}
             <button type="button" onClick={() => onRemove(i)} className="ml-auto shrink-0 rounded px-1.5 text-xs text-slate-400 hover:text-red-500" aria-label="Remove">✕</button>
           </div>

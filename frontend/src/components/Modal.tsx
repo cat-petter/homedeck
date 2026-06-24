@@ -27,7 +27,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex bg-black/50 backdrop-blur-sm"
+      className={'fixed inset-0 z-50 flex bg-black/50 backdrop-blur-sm ' + (side ? '' : 'p-4')}
       onClick={onClose}
       role="presentation"
     >
