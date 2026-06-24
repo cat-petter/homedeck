@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..models import User
 from ..security import get_current_user
-from ..services import settings_service
+from ..services import dockerhub_service, settings_service
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -38,3 +38,17 @@ def set_catalog_sources(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"sources": saved}
+
+
+class ImageRenamesRequest(BaseModel):
+    renames: dict[str, str]
+
+
+@router.get("/image-renames")
+def get_image_renames(_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    return {"builtin": dockerhub_service.builtin_renames(), "user": dockerhub_service.user_renames()}
+
+
+@router.put("/image-renames")
+def set_image_renames(req: ImageRenamesRequest, _user: User = Depends(get_current_user)) -> dict[str, Any]:
+    return {"user": dockerhub_service.set_user_renames(req.renames)}

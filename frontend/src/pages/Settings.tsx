@@ -7,8 +7,105 @@ export function Settings() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
       <CatalogSourcesCard />
+      <ImageRenamesCard />
       <InstallPasswordCard />
     </div>
+  )
+}
+
+// --- Image renames ----------------------------------------------------------
+
+function ImageRenamesCard() {
+  const [builtin, setBuiltin] = useState<Record<string, string>>({})
+  const [user, setUser] = useState<[string, string][]>([])
+  const [oldRepo, setOldRepo] = useState('')
+  const [newRepo, setNewRepo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    api
+      .imageRenames()
+      .then((r) => {
+        setBuiltin(r.builtin)
+        setUser(Object.entries(r.user))
+      })
+      .catch(() => {})
+  }, [])
+
+  function add() {
+    const o = oldRepo.trim().toLowerCase()
+    const n = newRepo.trim()
+    if (!o || !n) return
+    setUser((u) => [...u.filter(([k]) => k !== o), [o, n]])
+    setOldRepo('')
+    setNewRepo('')
+    setSaved(false)
+  }
+
+  async function save() {
+    setBusy(true)
+    try {
+      await api.saveImageRenames(Object.fromEntries(user))
+      setSaved(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card
+      title="Image remaps"
+      desc="When a catalog image is gone from Docker Hub, HomeDeck substitutes a replacement (with a disclaimer). Add your own old → new remaps here."
+    >
+      <div className="space-y-3">
+        {user.length > 0 && (
+          <div className="space-y-1">
+            {user.map(([o, n], i) => (
+              <div key={o} className="flex items-center gap-2 text-sm">
+                <span className="flex-1 truncate font-mono text-slate-700 dark:text-slate-200">{o}</span>
+                <span className="text-slate-400">→</span>
+                <span className="flex-1 truncate font-mono text-slate-700 dark:text-slate-200">{n}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUser((u) => u.filter((_, j) => j !== i))
+                    setSaved(false)
+                  }}
+                  className="rounded px-1.5 text-xs text-slate-400 hover:text-red-500"
+                  aria-label="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input value={oldRepo} onChange={(e) => setOldRepo(e.target.value)} placeholder="old/image" className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          <span className="self-center text-slate-400">→</span>
+          <input value={newRepo} onChange={(e) => setNewRepo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="new/image" className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          <button type="button" onClick={add} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+            Add
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          {Object.keys(builtin).length > 0 ? (
+            <span className="text-xs text-slate-400">+ {Object.keys(builtin).length} built-in remap(s)</span>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-3">
+            {saved && <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>}
+            <button type="button" onClick={save} disabled={busy} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-60">
+              {busy ? 'Saving…' : 'Save remaps'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Card>
   )
 }
 

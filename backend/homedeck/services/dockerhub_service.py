@@ -33,14 +33,48 @@ class HubError(RuntimeError):
     pass
 
 
+_USER_RENAMES_KEY = "image_renames"
+
+
 @lru_cache(maxsize=1)
-def _curated_renames() -> dict[str, str]:
-    """Hand-verified old-repo -> new-repo remaps from catalog/overrides."""
+def builtin_renames() -> dict[str, str]:
+    """Hand-verified old-repo -> new-repo remaps shipped in catalog/overrides."""
     try:
         data = json.loads(_RENAMES_FILE.read_text(encoding="utf-8"))
         return {k.lower(): v for k, v in (data.get("renames") or {}).items()}
     except (OSError, ValueError):
         return {}
+
+
+def user_renames() -> dict[str, str]:
+    """User-added remaps from the Settings page (DB)."""
+    from . import app_settings
+
+    raw = app_settings.get_setting(_USER_RENAMES_KEY)
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return {str(k).lower(): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    except ValueError:
+        return {}
+
+
+def all_renames() -> dict[str, str]:
+    """Effective remaps: built-ins with user entries layered on top."""
+    return {**builtin_renames(), **user_renames()}
+
+
+def set_user_renames(renames: dict[str, str]) -> dict[str, str]:
+    from . import app_settings
+
+    cleaned: dict[str, str] = {}
+    for old, new in (renames or {}).items():
+        o, n = str(old).strip().lower(), str(new).strip()
+        if o and n:
+            cleaned[o] = n
+    app_settings.set_setting(_USER_RENAMES_KEY, json.dumps(cleaned))
+    return cleaned
 
 
 def _timeout() -> int:
@@ -172,7 +206,7 @@ def find_replacement(image_ref: str) -> dict[str, Any] | None:
         return None
     original = parsed["repository"]
 
-    curated = _curated_renames().get(original.lower())
+    curated = all_renames().get(original.lower())
     if curated and _repo_exists(curated):
         return {"repo": curated, "source": "curated", "reason": "Hand-verified rename."}
 

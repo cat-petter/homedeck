@@ -704,5 +704,12 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ sources }),
     }),
+  imageRenames: () =>
+    request<{ builtin: Record<string, string>; user: Record<string, string> }>('/api/settings/image-renames'),
+  saveImageRenames: (renames: Record<string, string>) =>
+    request<{ user: Record<string, string> }>('/api/settings/image-renames', {
+      method: 'PUT',
+      body: JSON.stringify({ renames }),
+    }),
 }
 
