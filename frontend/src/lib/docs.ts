@@ -9,10 +9,19 @@ export interface DocsLink {
 }
 
 export function appDocsLink(image: string | undefined, repoUrl?: string | null): DocsLink | null {
-  // An explicit project/repo URL from the template wins (Portainer stacks carry one).
+  // Prefer docs derived from the image — it points at the actual app. The
+  // template's repository URL is only a fallback, because for stack templates
+  // it usually points at the catalog list's own repo (a wall of images), not
+  // the app's docs.
+  const fromImage = imageDocsLink(image)
+  if (fromImage) return fromImage
   if (repoUrl && /^https?:\/\//i.test(repoUrl)) {
-    return { href: repoUrl, label: 'Documentation' }
+    return { href: repoUrl, label: 'Source repository' }
   }
+  return null
+}
+
+function imageDocsLink(image: string | undefined): DocsLink | null {
   if (!image) return null
 
   // Parse registry / repository (strip digest + tag).

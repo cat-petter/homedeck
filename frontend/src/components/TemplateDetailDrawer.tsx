@@ -25,28 +25,39 @@ export function TemplateDetailDrawer({
   const [configuring, setConfiguring] = useState(false)
   const [imgStatus, setImgStatus] = useState<ImageStatus | null>(null)
 
+  // Reset to the new app's primary variant (and clear stale content) whenever
+  // the selected app changes — including back to null on close.
   useEffect(() => {
-    if (open && app) setVariantId(app.primary_id)
-  }, [open, app])
+    setVariantId(app?.primary_id ?? null)
+    setT(null)
+    setError(null)
+    setImgStatus(null)
+  }, [app])
 
   useEffect(() => {
     if (!open || !variantId) return
+    let active = true
     setT(null)
     setError(null)
     setImgStatus(null)
     api
       .catalogTemplate(variantId)
       .then((tpl) => {
+        if (!active) return
         setT(tpl)
         // Best-effort freshness check against Docker Hub (skips non-Hub images).
         if (tpl.image) {
           api
             .hubImageStatus(tpl.image)
-            .then(setImgStatus)
+            .then((s) => active && setImgStatus(s))
             .catch(() => {})
         }
       })
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load template'))
+      .catch((e) => active && setError(e instanceof ApiError ? e.message : 'Failed to load template'))
+    // A stale in-flight response must not overwrite the newly-selected app.
+    return () => {
+      active = false
+    }
   }, [open, variantId])
 
   const imgWarning =
