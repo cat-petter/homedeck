@@ -512,6 +512,31 @@ export interface ImageStatus {
   replacement?: ImageReplacement | null
 }
 
+// --- APT app store ----------------------------------------------------------
+
+export interface AptStatus {
+  total: number
+  installed: number
+  upgradable: number
+}
+export interface AptPackage {
+  name: string
+  summary: string
+  section: string
+  installed: boolean
+  upgradable: boolean
+  installed_version: string | null
+  candidate_version: string
+}
+export interface AptPackageDetail extends AptPackage {
+  description: string
+  homepage: string
+  installed_size: number
+  download_size: number
+  priority: string
+  origin: string
+}
+
 export const api = {
   setupStatus: () => request<SetupStatus>('/api/setup/status'),
   createAdmin: (username: string, password: string) =>
@@ -636,5 +661,19 @@ export const api = {
     request<HubInspect>(`/api/hub/repos/${repo.split('/').map(encodeURIComponent).join('/')}`),
   hubImageStatus: (image: string) =>
     request<ImageStatus>(`/api/hub/image-status?image=${encodeURIComponent(image)}`),
+
+  // APT app store
+  aptStatus: () => request<AptStatus>('/api/apt/status'),
+  aptPackages: (params: { search?: string; installed?: boolean; upgradable?: boolean; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (params.search) q.set('search', params.search)
+    if (params.installed) q.set('installed', 'true')
+    if (params.upgradable) q.set('upgradable', 'true')
+    if (params.limit) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return request<{ total: number; items: AptPackage[] }>(`/api/apt/packages${qs ? `?${qs}` : ''}`)
+  },
+  aptPackage: (name: string) =>
+    request<AptPackageDetail>(`/api/apt/packages/${encodeURIComponent(name)}`),
 }
 

@@ -5,8 +5,15 @@ import { AppIcon } from '../components/AppIcon'
 import { TemplateDetailDrawer } from '../components/TemplateDetailDrawer'
 import { HubImageDrawer } from '../components/HubImageDrawer'
 import { InstalledApps } from '../components/InstalledApps'
+import { AptStore } from '../components/AptStore'
 
-type Source = 'catalog' | 'hub'
+type Source = 'catalog' | 'hub' | 'apt'
+
+const SOURCE_LABELS: Record<Source, string> = {
+  catalog: 'Catalog',
+  hub: 'Docker Hub',
+  apt: 'APT (system)',
+}
 
 export function Store() {
   const [source, setSource] = useState<Source>('catalog')
@@ -106,8 +113,10 @@ export function Store() {
                 {status ? `${status.total} templates` : 'Loading…'}
                 {status?.last_synced && ` · synced ${formatUptime(status.last_synced)} ago`}
               </>
-            ) : (
+            ) : source === 'hub' ? (
               'Search any image on Docker Hub'
+            ) : (
+              'Browse & manage system (APT) packages'
             )}
           </p>
         </div>
@@ -133,7 +142,7 @@ export function Store() {
 
       {/* Source toggle */}
       <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-sm dark:border-slate-800">
-        {(['catalog', 'hub'] as const).map((s) => (
+        {(['catalog', 'hub', 'apt'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -145,11 +154,15 @@ export function Store() {
                 : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
             }
           >
-            {s === 'catalog' ? 'Catalog' : 'Docker Hub'}
+            {SOURCE_LABELS[s]}
           </button>
         ))}
       </div>
 
+      {source === 'apt' && <AptStore />}
+
+      {source !== 'apt' && (
+      <>
       <div className="flex flex-wrap gap-3">
         <input
           value={search}
@@ -249,6 +262,8 @@ export function Store() {
             </button>
           ))}
         </div>
+      )}
+      </>
       )}
 
       <TemplateDetailDrawer
