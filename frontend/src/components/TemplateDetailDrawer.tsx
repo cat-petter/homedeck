@@ -3,6 +3,7 @@ import { ApiError, api, type CatalogApp, type CatalogTemplate, type ImageStatus 
 import { Modal } from './Modal'
 import { AppIcon } from './AppIcon'
 import { InstallConfigForm } from './InstallConfigForm'
+import { appDocsLink } from '../lib/docs'
 
 // Template detail (browse). For apps with multiple image variants (official vs
 // linuxserver) a selector switches between them. "Configure & install" opens the
@@ -52,6 +53,8 @@ export function TemplateDetailDrawer({
     imgStatus?.checked && (imgStatus.exists === false || imgStatus.stale) ? imgStatus.message : null
   // Auto-substitution: only when the original image is gone AND we found one.
   const replacement = imgStatus?.exists === false ? imgStatus.replacement ?? null : null
+  // Documentation link follows the auto-substituted image when one applies.
+  const docs = t ? appDocsLink(replacement?.repo ?? t.image, t.spec?.repository?.url) : null
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="tpl-title">
@@ -89,6 +92,18 @@ export function TemplateDetailDrawer({
                 </div>
               )}
               {t.description && <p className="text-slate-600 dark:text-slate-300">{t.description}</p>}
+
+              {docs && (
+                <a
+                  href={docs.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-sky-600 hover:bg-slate-50 dark:border-slate-700 dark:text-sky-400 dark:hover:bg-slate-800"
+                >
+                  📖 {docs.label}
+                  <span aria-hidden className="text-xs">↗</span>
+                </a>
+              )}
 
               {app && app.variant_count > 1 && (
                 <label className="block">
