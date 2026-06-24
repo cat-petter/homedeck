@@ -24,7 +24,7 @@ edit-after-install. Reachable over your LAN and via Tailscale.
   host metrics directly.
 - **Frontend:** React · Vite · TypeScript · Tailwind CSS v4 — built to static assets
   and served by FastAPI (single origin, no CORS).
-- **Target host:** Debian 12 "Bookworm".
+- **Target host:** Debian (Tested on 12 "Bookworm").
 
 ## Requirements (host)
 
