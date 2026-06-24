@@ -3,6 +3,7 @@ import { ApiError, api, type CatalogApp, type CatalogTemplate, type ImageStatus 
 import { Modal } from './Modal'
 import { AppIcon } from './AppIcon'
 import { InstallConfigForm } from './InstallConfigForm'
+import { StackInstallDrawer } from './StackInstallDrawer'
 import { appDocsLink } from '../lib/docs'
 
 // Template detail (browse). For apps with multiple image variants (official vs
@@ -23,6 +24,7 @@ export function TemplateDetailDrawer({
   const [error, setError] = useState<string | null>(null)
   const [variantId, setVariantId] = useState<string | null>(null)
   const [configuring, setConfiguring] = useState(false)
+  const [stacking, setStacking] = useState(false)
   const [imgStatus, setImgStatus] = useState<ImageStatus | null>(null)
 
   // Reset to the new app's primary variant (and clear stale content) whenever
@@ -66,6 +68,15 @@ export function TemplateDetailDrawer({
   const replacement = imgStatus?.exists === false ? imgStatus.replacement ?? null : null
   // Documentation link follows the auto-substituted image when one applies.
   const docs = t ? appDocsLink(replacement?.repo ?? t.image, t.spec?.repository?.url) : null
+
+  // Install routing: image-bearing templates (incl. single-service CasaOS
+  // "stacks") use the config form; image-less stacks with a fetchable stackfile
+  // use the raw-compose stack installer.
+  const hasImage = !!t?.image
+  const repo = t?.spec?.repository
+  const stackInstallable = !!(t && t.kind === 'stack' && !hasImage && repo?.url && repo?.stackfile)
+  const isStack = !hasImage && stackInstallable
+  const installable = hasImage || stackInstallable
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="tpl-title">
@@ -221,12 +232,12 @@ export function TemplateDetailDrawer({
         <div className="border-t border-slate-200 p-4 dark:border-slate-800">
           <button
             type="button"
-            disabled={!t || t.kind === 'stack' || !t.image}
-            onClick={() => setConfiguring(true)}
-            title={t?.kind === 'stack' ? 'Compose-stack templates are not installable yet' : undefined}
+            disabled={!installable}
+            onClick={() => (hasImage ? setConfiguring(true) : setStacking(true))}
+            title={!installable ? 'No image or stackfile to install from' : undefined}
             className="w-full rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
           >
-            {t?.kind === 'stack' ? 'Stack install — coming later' : 'Configure & install'}
+            {!installable ? 'Not installable' : isStack ? 'Review & install stack' : 'Configure & install'}
           </button>
         </div>
       </div>
@@ -238,6 +249,16 @@ export function TemplateDetailDrawer({
         onClose={() => setConfiguring(false)}
         onDeployed={() => {
           setConfiguring(false)
+          onClose()
+          onDeployed?.()
+        }}
+      />
+      <StackInstallDrawer
+        template={t}
+        open={stacking}
+        onClose={() => setStacking(false)}
+        onDeployed={() => {
+          setStacking(false)
           onClose()
           onDeployed?.()
         }}

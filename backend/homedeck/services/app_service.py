@@ -112,13 +112,19 @@ def _to_dict(app: InstalledApp, status: str | None = None) -> dict[str, Any]:
 
 
 def _live_status(name: str) -> str:
-    """Container state for the app's single service, by container_name == name."""
+    """Status of the app's compose project (works for single- and multi-service).
+
+    Every managed app is deployed as `docker compose -p <name>`, so its containers
+    carry the project label — match on that rather than container name.
+    """
     try:
         client = dsvc.get_client()
-        matches = client.containers.list(all=True, filters={"name": f"^/{name}$"})
+        matches = client.containers.list(
+            all=True, filters={"label": f"com.docker.compose.project={name}"}
+        )
         if not matches:
             return "stopped"
-        return "running" if matches[0].status == "running" else "stopped"
+        return "running" if any(c.status == "running" for c in matches) else "stopped"
     except Exception:  # noqa: BLE001 - status is best-effort
         return "unknown"
 
@@ -202,6 +208,68 @@ def _host_ports(config: dict[str, Any]) -> set[int]:
         if hp.isdigit():
             out.add(int(hp))
     return out
+
+
+def deploy_compose(
+    name: str,
+    compose_yaml: str,
+    *,
+    title: str = "",
+    icon: str = "",
+    web_ui_lan: str = "",
+    web_ui_tailscale: str = "",
+    template_id: str = "",
+) -> dict[str, Any]:
+    """Deploy a user-reviewed multi-service compose file verbatim.
+
+    Used for 'stack' templates whose compose comes from a git repo. We write the
+    YAML as-is and `docker compose up -d` it, registering the project as a
+    managed app so it can be removed later.
+    """
+    name = compose.safe_name(name)
+    if not compose_yaml.strip():
+        raise DeployError("Compose file is empty.")
+    with session_scope() as db:
+        if db.exec(select(InstalledApp).where(InstalledApp.name == name)).first():
+            raise DeployError(f"An app named '{name}' is already installed.")
+
+    target = _app_dir(name)
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "docker-compose.yml").write_text(compose_yaml, encoding="utf-8")
+
+    try:
+        output = _run_compose(["-p", name, "up", "-d"], cwd=target, timeout=_UP_TIMEOUT)
+    except DeployError as exc:
+        try:
+            _run_compose(["-p", name, "down"], cwd=target, timeout=_DOWN_TIMEOUT)
+        except DeployError:
+            pass
+        shutil.rmtree(target, ignore_errors=True)
+        raise DeployError(str(exc), getattr(exc, "output", "")) from exc
+
+    config = {"web_ui_lan": web_ui_lan, "web_ui_tailscale": web_ui_tailscale}
+    with session_scope() as db:
+        app = InstalledApp(
+            name=name,
+            title=title or name,
+            image="(compose stack)",
+            icon=icon,
+            web_ui_lan=web_ui_lan,
+            web_ui_tailscale=web_ui_tailscale,
+            template_id=template_id or "",
+            compose_dir=str(target),
+            compose_yaml=compose_yaml,
+            config=config,
+            status="running",
+        )
+        db.add(app)
+        db.flush()
+        app.service_id = _sync_tile(db, app, config)
+        db.add(app)
+        db.commit()
+        result = _to_dict(app, status="running")
+    result["output"] = output
+    return result
 
 
 def redeploy(app_id: int, config: dict[str, Any], required_env: list[str] | None = None) -> dict[str, Any]:

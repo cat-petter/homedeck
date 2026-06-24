@@ -12,6 +12,8 @@ from ..models import User
 from ..security import get_current_user
 from ..services import catalog_service as csvc
 from ..services import compose_service as compose
+from ..services import stack_service
+from ..services.stack_service import StackError
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -41,6 +43,16 @@ def list_templates(
 @router.get("/categories")
 def categories(_user: User = Depends(get_current_user)) -> dict[str, Any]:
     return {"categories": csvc.categories()}
+
+
+@router.get("/stack-compose")
+async def stack_compose(template_id: str, _user: User = Depends(get_current_user)) -> dict[str, Any]:
+    # Query param (not a path segment) so it doesn't collide with the greedy
+    # /templates/{id:path} route below.
+    try:
+        return await asyncio.to_thread(stack_service.get_compose, template_id)
+    except StackError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.get("/templates/{template_id:path}")

@@ -22,6 +22,16 @@ class DeployRequest(BaseModel):
     config: dict[str, Any]
 
 
+class DeployComposeRequest(BaseModel):
+    name: str
+    compose_yaml: str
+    title: str = ""
+    icon: str = ""
+    web_ui_lan: str = ""
+    web_ui_tailscale: str = ""
+    template_id: str = ""
+
+
 class ReconfigureRequest(BaseModel):
     config: dict[str, Any]
 
@@ -51,6 +61,23 @@ async def deploy(req: DeployRequest, _user: User = Depends(get_current_user)) ->
     try:
         return await asyncio.to_thread(
             asvc.deploy, req.template_id, req.config, _required_env(req.template_id)
+        )
+    except DeployError as exc:
+        raise HTTPException(status_code=422, detail={"message": str(exc), "output": exc.output})
+
+
+@router.post("/deploy-compose")
+async def deploy_compose(req: DeployComposeRequest, _user: User = Depends(get_current_user)) -> dict[str, Any]:
+    try:
+        return await asyncio.to_thread(
+            asvc.deploy_compose,
+            req.name,
+            req.compose_yaml,
+            title=req.title,
+            icon=req.icon,
+            web_ui_lan=req.web_ui_lan,
+            web_ui_tailscale=req.web_ui_tailscale,
+            template_id=req.template_id,
         )
     except DeployError as exc:
         raise HTTPException(status_code=422, detail={"message": str(exc), "output": exc.output})

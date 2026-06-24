@@ -637,6 +637,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ template_id, config }),
     }),
+  stackCompose: (template_id: string) =>
+    request<{ compose_yaml: string; source_url: string; swarmish: boolean }>(
+      `/api/catalog/stack-compose?template_id=${encodeURIComponent(template_id)}`,
+    ),
+  deployStackCompose: (body: {
+    name: string
+    compose_yaml: string
+    title?: string
+    icon?: string
+    web_ui_lan?: string
+    web_ui_tailscale?: string
+    template_id?: string
+  }) => request<DeployResult>('/api/apps/deploy-compose', { method: 'POST', body: JSON.stringify(body) }),
 
   // Installed apps
   listApps: () => request<{ apps: InstalledApp[] }>('/api/apps'),
