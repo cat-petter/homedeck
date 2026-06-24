@@ -58,6 +58,17 @@ the admin account. (Port 8770 is the default — set `server.port` in `config.ya
 
 - Status / logs: `sudo systemctl status homedeck` · `sudo journalctl -u homedeck -f`
 
+### Uninstall
+
+```bash
+./uninstall.sh          # remove HomeDeck (service, APT helper + sudoers, venv,
+                        # build) — keeps your data/config + leaves deployed apps
+./uninstall.sh --purge  # also delete data/ + config + tear down deployed apps
+```
+
+Reverses everything `install.sh` set up; uses `sudo` for the system-level bits.
+It never deletes the source checkout — remove that folder by hand afterward.
+
 ## App stores
 
 - **Docker** — browse a merged catalog (Portainer-format community lists + the
