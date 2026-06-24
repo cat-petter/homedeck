@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, api, type AptPackage, type AptStatus } from '../lib/api'
 import { AptPackageDrawer } from './AptPackageDrawer'
 import { InstallPasswordModal } from './InstallPasswordModal'
+import { SkeletonGrid } from './Skeleton'
 
 type Filter = 'installed' | 'upgradable' | 'all'
 
@@ -112,7 +113,7 @@ export function AptStore() {
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       {!items ? (
-        <p className="text-slate-400">Loading…</p>
+        <SkeletonGrid />
       ) : items.length === 0 ? (
         <p className="text-slate-400">
           {filter === 'installed' && !search ? 'No app-like installed packages.' : 'No packages match.'}

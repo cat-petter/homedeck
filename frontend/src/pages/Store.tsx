@@ -6,6 +6,7 @@ import { TemplateDetailDrawer } from '../components/TemplateDetailDrawer'
 import { HubImageDrawer } from '../components/HubImageDrawer'
 import { InstalledApps } from '../components/InstalledApps'
 import { AptStore } from '../components/AptStore'
+import { SkeletonGrid } from '../components/Skeleton'
 
 type Source = 'catalog' | 'hub' | 'apt'
 
@@ -27,6 +28,7 @@ export function Store() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<CatalogApp | null>(null)
   const [appsRefresh, setAppsRefresh] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
   // Docker Hub search.
   const [hubResults, setHubResults] = useState<HubSearchResult[] | null>(null)
   const [hubLoading, setHubLoading] = useState(false)
@@ -38,7 +40,17 @@ export function Store() {
   }
   useEffect(loadMeta, [])
 
-  // Load templates on filter change (debounced search).
+  // Reset cross-tab sub-state when switching sources so a filter/results from
+  // one tab can't leak into another.
+  useEffect(() => {
+    setSearch('')
+    setCategory('')
+    setHubResults(null)
+    setError(null)
+  }, [source])
+
+  // Load templates on filter change (debounced search). refreshKey lets sync()
+  // re-fetch with the *current* search instead of a stale closure value.
   useEffect(() => {
     let active = true
     const handle = setTimeout(() => {
@@ -55,7 +67,7 @@ export function Store() {
       active = false
       clearTimeout(handle)
     }
-  }, [search, category])
+  }, [search, category, refreshKey])
 
   // Docker Hub live search (only while that source is active).
   useEffect(() => {
@@ -89,9 +101,9 @@ export function Store() {
         setError(summary.errors.map((e) => `${e.url}: ${e.error}`).join('; '))
       }
       loadMeta()
-      const r = await api.catalogTemplates({ search, category })
-      setItems(r.items)
-      setTotal(r.total)
+      // Re-fetch via the templates effect (uses current search/category, has its
+      // own stale-guard) rather than a racy inline fetch with closure values.
+      setRefreshKey((n) => n + 1)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Sync failed')
     } finally {
@@ -195,7 +207,7 @@ export function Store() {
             </button>
           </div>
         ) : !items ? (
-          <p className="text-slate-400">Loading…</p>
+          <SkeletonGrid />
         ) : items.length === 0 ? (
           <p className="text-slate-400">No apps match.</p>
         ) : (
@@ -234,7 +246,7 @@ export function Store() {
       ) : !search.trim() ? (
         <p className="text-slate-400">Type to search Docker Hub.</p>
       ) : hubLoading && !hubResults ? (
-        <p className="text-slate-400">Searching…</p>
+        <SkeletonGrid count={3} />
       ) : hubResults && hubResults.length === 0 ? (
         <p className="text-slate-400">No images match.</p>
       ) : (

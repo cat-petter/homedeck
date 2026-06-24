@@ -46,12 +46,20 @@ pip install -r "$REPO_ROOT/backend/requirements.txt"
 deactivate
 
 # --- Frontend build ---------------------------------------------------------
+# Node is commonly installed via nvm, which only puts npm on PATH in shells that
+# have sourced it. Source it here so running ./install.sh from a plain shell
+# doesn't silently skip the build.
+[ -z "${NVM_DIR:-}" ] && export NVM_DIR="$HOME/.nvm"
+# shellcheck disable=SC1091
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
+
 if command -v npm >/dev/null 2>&1; then
     log "Building frontend"
     ( cd "$REPO_ROOT/frontend" && npm install && npm run build )
 else
-    warn "npm not found — skipping frontend build."
-    warn "The backend will serve a dev placeholder until you build the UI:"
+    warn "npm not found (even after sourcing nvm) — SKIPPING frontend build."
+    warn "The backend will only serve a dev placeholder until you build the UI:"
+    warn "  export NVM_DIR=\"\$HOME/.nvm\"; . \"\$NVM_DIR/nvm.sh\"   # if using nvm"
     warn "  cd frontend && npm install && npm run build"
 fi
 

@@ -120,7 +120,11 @@ function Row({ label, value, mono }: { label: string; value?: string; mono?: boo
     <div className="flex items-baseline justify-between gap-3 py-0.5">
       <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
       <span className={`text-sm text-slate-800 dark:text-slate-200 ${mono ? 'font-mono' : ''}`}>
-        {value ?? '…'}
+        {value === undefined ? (
+          <span className="inline-block h-3 w-16 animate-pulse rounded bg-slate-200 align-middle dark:bg-slate-800" />
+        ) : (
+          value
+        )}
       </span>
     </div>
   )
