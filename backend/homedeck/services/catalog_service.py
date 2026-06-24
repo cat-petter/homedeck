@@ -191,8 +191,10 @@ def normalize_portainer(t: dict[str, Any], source_url: str) -> dict[str, Any] | 
         "source": "portainer",
         "source_url": source_url,
         "name": name or parse_image(image)["slug"],
-        "description": t.get("description", ""),
-        "logo": t.get("logo", ""),
+        # `or ""` (not get-default): some sources ship `"description": null`,
+        # and the column is NOT NULL.
+        "description": t.get("description") or "",
+        "logo": t.get("logo") or "",
         "image": image,
         "image_key": _image_key(image),
         "kind": _norm_kind(t.get("type")),
@@ -344,7 +346,7 @@ def _merge_group(entries: list[dict[str, Any]]) -> dict[str, Any]:
     canonical = max(entries, key=lambda e: _richness(e["spec"], e.get("logo", ""), e.get("description", "")))
     out = dict(canonical)
     out["logo"] = next((e["logo"] for e in entries if e.get("logo")), "")
-    out["description"] = max((e.get("description", "") for e in entries), key=len)
+    out["description"] = max((e.get("description") or "" for e in entries), key=len)
     cats: list[str] = []
     for e in entries:
         for c in e.get("categories", []):
@@ -431,12 +433,13 @@ def sync() -> dict[str, Any]:
                 summary["imported"] += 1
             else:
                 summary["updated"] += 1
+            # NOT NULL string columns: coerce None defensively regardless of source.
             row.source = c["source"]
-            row.source_url = c["source_url"]
-            row.name = c["name"]
-            row.description = c["description"]
-            row.logo = c["logo"]
-            row.image = c["image"]
+            row.source_url = c["source_url"] or ""
+            row.name = c["name"] or ""
+            row.description = c["description"] or ""
+            row.logo = c["logo"] or ""
+            row.image = c["image"] or ""
             row.image_key = c["image_key"]
             row.app_group = c["app_group"]
             row.kind = c["kind"]
