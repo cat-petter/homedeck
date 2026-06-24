@@ -370,20 +370,27 @@ def _canonical_id(image_key: str, fallback_id: str) -> str:
 
 
 def dedup(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Entries with a derivable image are grouped by image_key (true duplicates).
+    # Image-less entries (compose "stacks") have no fingerprint, so group them by
+    # their fallback id — the same stack app from different source lists shares
+    # one id, and we merge instead of letting them collide on DB upsert.
     by_key: dict[str, list[dict]] = {}
-    no_key: list[dict] = []
+    by_id: dict[str, list[dict]] = {}
     for e in entries:
         if e.get("image_key"):
             by_key.setdefault(e["image_key"], []).append(e)
         else:
-            no_key.append(e)
+            by_id.setdefault(e["id"], []).append(e)
 
     canon: list[dict[str, Any]] = []
     for key, group in by_key.items():
         merged = _merge_group(group) if len(group) > 1 else dict(group[0])
         merged["id"] = _canonical_id(key, merged["id"])
         canon.append(merged)
-    canon.extend(dict(e) for e in no_key)
+    for fid, group in by_id.items():
+        merged = _merge_group(group) if len(group) > 1 else dict(group[0])
+        merged["id"] = fid  # keep the shared fallback id
+        canon.append(merged)
     for c in canon:
         c["app_group"] = _slugify(c["name"])
     return canon
