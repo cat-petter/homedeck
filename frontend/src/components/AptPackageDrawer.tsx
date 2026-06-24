@@ -1,21 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ApiError, api, type AptPackageDetail } from '../lib/api'
 import { formatBytes } from '../lib/format'
 import { Modal } from './Modal'
+import { AptRunModal, type AptVerb } from './AptRunModal'
 
-// APT package detail (read-only for now). Install/remove/upgrade land in the
-// next step, behind the install-password gate.
+// APT package detail + install/remove/upgrade (gated by the install password).
 export function AptPackageDrawer({
   name,
   open,
   onClose,
+  passwordSet,
+  onNeedPassword,
+  onChanged,
 }: {
   name: string | null
   open: boolean
   onClose: () => void
+  passwordSet: boolean | null
+  onNeedPassword: () => void
+  onChanged?: () => void
 }) {
   const [pkg, setPkg] = useState<AptPackageDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [run, setRun] = useState<AptVerb | null>(null)
+
+  const load = useCallback(() => {
+    if (!name) return
+    setPkg(null)
+    setError(null)
+    api
+      .aptPackage(name)
+      .then(setPkg)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load package'))
+  }, [name])
 
   useEffect(() => {
     if (!open || !name) return
@@ -30,6 +47,14 @@ export function AptPackageDrawer({
       active = false
     }
   }, [open, name])
+
+  function act(verb: AptVerb) {
+    if (passwordSet === false) {
+      onNeedPassword()
+      return
+    }
+    setRun(verb)
+  }
 
   return (
     <Modal open={open} onClose={onClose} side labelledBy="apt-title">
@@ -93,17 +118,57 @@ export function AptPackageDrawer({
           )}
         </div>
 
-        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-          <button
-            type="button"
-            disabled
-            title="APT install/remove lands in the next step"
-            className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-          >
-            {pkg?.installed ? 'Remove — coming next' : 'Install — coming next'}
-          </button>
+        <div className="space-y-2 border-t border-slate-200 p-4 dark:border-slate-800">
+          {passwordSet === false && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">Set an install password to manage packages.</p>
+          )}
+          {pkg && (
+            <div className="flex gap-2">
+              {pkg.installed ? (
+                <>
+                  {pkg.upgradable && (
+                    <button
+                      type="button"
+                      onClick={() => act('upgrade')}
+                      className="flex-1 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500"
+                    >
+                      Upgrade
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => act('remove')}
+                    className="flex-1 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => act('install')}
+                  className="flex-1 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-500"
+                >
+                  Install
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {pkg && (
+        <AptRunModal
+          open={run !== null}
+          verb={run ?? 'install'}
+          pkg={pkg.name}
+          onClose={() => setRun(null)}
+          onDone={() => {
+            load()
+            onChanged?.()
+          }}
+        />
+      )}
     </Modal>
   )
 }

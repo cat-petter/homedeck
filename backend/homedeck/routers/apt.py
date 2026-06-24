@@ -7,13 +7,16 @@ password.
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
+from ..db import session_scope
 from ..models import User
-from ..security import get_current_user
+from ..security import get_current_user, get_user_from_token
 from ..services import apt_service as asvc
+from ..services import install_auth
 
 router = APIRouter(prefix="/api/apt", tags=["apt"])
 
@@ -43,3 +46,96 @@ async def package(name: str, _user: User = Depends(get_current_user)) -> dict[st
     if detail is None:
         raise HTTPException(status_code=404, detail="Package not found")
     return detail
+
+
+# --- WebSocket: run a privileged apt operation, streaming output ------------
+
+async def _ws_user(websocket: WebSocket) -> User | None:
+    from ..config import get_settings
+
+    token = websocket.cookies.get(get_settings().session.cookie_name)
+
+    def _lookup() -> User | None:
+        with session_scope() as db:
+            user = get_user_from_token(db, token)
+            return User(id=user.id, username=user.username, is_admin=user.is_admin) if user else None
+
+    return await asyncio.to_thread(_lookup)
+
+
+@router.websocket("/ws/run")
+async def ws_run(websocket: WebSocket) -> None:
+    """Install/remove/upgrade with live output.
+
+    Auth is two-factor: the session cookie (logged-in user) plus the app-level
+    install password, sent in the first message. We do NOT kill the operation on
+    client disconnect — interrupting dpkg mid-transaction is dangerous; we let it
+    finish.
+    """
+    await websocket.accept()
+    user = await _ws_user(websocket)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    try:
+        msg = await websocket.receive_json()
+    except Exception:  # noqa: BLE001 - bad/empty first frame
+        await websocket.close()
+        return
+
+    verb = str(msg.get("verb") or "")
+    packages = [str(p) for p in (msg.get("packages") or [])]
+    password = str(msg.get("password") or "")
+
+    if not install_auth.verify(password):
+        await websocket.send_json({"type": "error", "detail": "Install password is incorrect."})
+        await websocket.close()
+        return
+    try:
+        asvc.validate(verb, packages)
+    except asvc.AptCommandError as exc:
+        await websocket.send_json({"type": "error", "detail": str(exc)})
+        await websocket.close()
+        return
+
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+
+    def _reader() -> None:
+        try:
+            proc = asvc.popen(verb, packages)
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                loop.call_soon_threadsafe(queue.put_nowait, ("line", line.rstrip("\n")))
+            loop.call_soon_threadsafe(queue.put_nowait, ("end", proc.wait()))
+        except FileNotFoundError as exc:
+            loop.call_soon_threadsafe(queue.put_nowait, ("error", f"Helper not installed: {exc}"))
+            loop.call_soon_threadsafe(queue.put_nowait, ("end", 127))
+        except Exception as exc:  # noqa: BLE001 - surface anything, don't hang
+            loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+            loop.call_soon_threadsafe(queue.put_nowait, ("end", 1))
+
+    threading.Thread(target=_reader, name=f"apt-{verb}", daemon=True).start()
+
+    try:
+        while True:
+            kind, data = await queue.get()
+            if kind == "line":
+                await websocket.send_json({"type": "line", "data": data})
+            elif kind == "error":
+                await websocket.send_json({"type": "error", "detail": data})
+            elif kind == "end":
+                if data == 0:
+                    await asyncio.to_thread(asvc.refresh)  # reflect new package state
+                await websocket.send_json({"type": "end", "code": data})
+                break
+    except WebSocketDisconnect:
+        return
+    except RuntimeError:
+        return
+    finally:
+        try:
+            await websocket.close()
+        except RuntimeError:
+            pass

@@ -55,6 +55,31 @@ else
     warn "  cd frontend && npm install && npm run build"
 fi
 
+# --- Privileged APT helper (Phase 6) ----------------------------------------
+# HomeDeck runs unprivileged, but the APT app store needs root to install/remove
+# packages. We install one small, root-owned helper and a scoped NOPASSWD
+# sudoers rule that lets ONLY this user run ONLY that helper. The helper itself
+# validates its input (see scripts/homedeck-apt). The app-level install password
+# gates use of it from the UI.
+APT_HELPER_DIR="/usr/local/lib/homedeck"
+APT_HELPER_PATH="${APT_HELPER_DIR}/homedeck-apt"
+SUDOERS_PATH="/etc/sudoers.d/homedeck-apt"
+
+log "Installing privileged APT helper (sudo) -> ${APT_HELPER_PATH}"
+sudo install -d -o root -g root -m 0755 "$APT_HELPER_DIR"
+sudo install -o root -g root -m 0755 "$REPO_ROOT/scripts/homedeck-apt" "$APT_HELPER_PATH"
+
+log "Installing sudoers rule (sudo) -> ${SUDOERS_PATH}"
+SUDOERS_TMP="$(mktemp)"
+printf '%s ALL=(root) NOPASSWD: %s\n' "$SERVICE_USER" "$APT_HELPER_PATH" > "$SUDOERS_TMP"
+# Validate before installing so a typo can never break sudo.
+if sudo visudo -cf "$SUDOERS_TMP" >/dev/null; then
+    sudo install -o root -g root -m 0440 "$SUDOERS_TMP" "$SUDOERS_PATH"
+else
+    warn "Generated sudoers rule failed validation — skipping. APT install/remove will not work."
+fi
+rm -f "$SUDOERS_TMP"
+
 # --- systemd unit -----------------------------------------------------------
 VENV_PYTHON="${VENV_DIR}/bin/python"
 RENDERED="$(mktemp)"

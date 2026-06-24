@@ -11,10 +11,14 @@ the scoped sudoers helper and the app-level install password — not here.
 
 from __future__ import annotations
 
+import re
+import subprocess
 import threading
 from typing import Any
 
 import apt
+
+from ..config import get_settings
 
 # Debian sections that contain end-user apps/tools (vs libraries, language
 # bindings, docs, debug symbols). The huge majority of the 63k packages are not
@@ -165,3 +169,47 @@ def package_detail(name: str) -> dict[str, Any] | None:
             "priority": cand.priority or "",
             "origin": (cand.origins[0].label if cand.origins else "") or "",
         }
+
+
+# --- Privileged operations (via the scoped sudo helper) ---------------------
+
+_VERBS = {"update", "install", "remove", "upgrade"}
+_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+._-]*$")
+
+
+class AptCommandError(ValueError):
+    """The requested verb/packages are invalid (rejected before running)."""
+
+
+def validate(verb: str, packages: list[str]) -> None:
+    if verb not in _VERBS:
+        raise AptCommandError(f"Unknown action: {verb!r}")
+    if verb == "update":
+        if packages:
+            raise AptCommandError("update takes no packages")
+        return
+    if not packages:
+        raise AptCommandError(f"{verb} requires at least one package")
+    for p in packages:
+        if not _NAME_RE.match(p):
+            raise AptCommandError(f"Invalid package name: {p!r}")
+
+
+def build_command(verb: str, packages: list[str]) -> list[str]:
+    """Validate, then return the argv for `sudo homedeck-apt <verb> [pkgs]`."""
+    validate(verb, packages)
+    cfg = get_settings().apt
+    return [cfg.sudo_path, "-n", cfg.helper_path, verb, *packages]
+
+
+def popen(verb: str, packages: list[str]) -> subprocess.Popen:
+    """Start the privileged helper, streaming combined stdout/stderr (text)."""
+    cmd = build_command(verb, packages)
+    return subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        bufsize=1,
+        text=True,
+    )

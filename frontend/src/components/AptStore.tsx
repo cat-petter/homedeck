@@ -17,6 +17,8 @@ export function AptStore() {
   const [selected, setSelected] = useState<string | null>(null)
   const [pwSet, setPwSet] = useState<boolean | null>(null)
   const [pwModal, setPwModal] = useState<'create' | 'change' | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const reload = () => setRefreshKey((n) => n + 1)
 
   useEffect(() => {
     api.aptStatus().then(setStatus).catch(() => {})
@@ -49,7 +51,7 @@ export function AptStore() {
       active = false
       clearTimeout(handle)
     }
-  }, [search, filter])
+  }, [search, filter, refreshKey])
 
   return (
     <div className="space-y-4">
@@ -152,7 +154,17 @@ export function AptStore() {
         </>
       )}
 
-      <AptPackageDrawer name={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <AptPackageDrawer
+        name={selected}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        passwordSet={pwSet}
+        onNeedPassword={() => setPwModal('create')}
+        onChanged={() => {
+          api.aptStatus().then(setStatus).catch(() => {})
+          reload()
+        }}
+      />
       <InstallPasswordModal
         open={pwModal !== null}
         mode={pwModal ?? 'create'}

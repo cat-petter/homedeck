@@ -51,6 +51,13 @@ class DockerConfig(BaseModel):
     socket: str = "unix:///var/run/docker.sock"
 
 
+class AptConfig(BaseModel):
+    # The privileged helper invoked via sudo (NOPASSWD). install.sh installs it
+    # root-owned and drops the matching sudoers rule.
+    helper_path: str = "/usr/local/lib/homedeck/homedeck-apt"
+    sudo_path: str = "/usr/bin/sudo"
+
+
 class SessionConfig(BaseModel):
     cookie_name: str = "homedeck_session"
     lifetime_hours: int = 24 * 14
@@ -97,6 +104,7 @@ class Settings(BaseSettings):
     server: ServerConfig = Field(default_factory=ServerConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     docker: DockerConfig = Field(default_factory=DockerConfig)
+    apt: AptConfig = Field(default_factory=AptConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
     catalog: CatalogConfig = Field(default_factory=CatalogConfig)
 

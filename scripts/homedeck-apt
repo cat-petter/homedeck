@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""HomeDeck privileged APT helper.
+
+Invoked as root via a scoped, NOPASSWD sudoers rule. This is the ONLY privileged
+surface of HomeDeck's APT app store, so keep it small and auditable.
+
+It runs a narrow, fixed set of apt-get operations on strictly-validated package
+names, in a clean environment, with output streamed live. It deliberately:
+  * accepts only the verbs update/install/remove/upgrade,
+  * validates every package name against the Debian name charset,
+  * passes package names after `--` so they can never be read as options,
+  * never uses a shell.
+
+Self-contained on purpose (no imports from the HomeDeck app) so its behaviour
+can't be influenced by the unprivileged service's code or environment.
+
+Usage: homedeck-apt <update|install|remove|upgrade> [package ...]
+"""
+
+import re
+import subprocess
+import sys
+
+_ALLOWED = {"update", "install", "remove", "upgrade"}
+# Debian binary package name grammar (lowercase, must start alphanumeric).
+_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+._-]*$")
+_ENV = {
+    "DEBIAN_FRONTEND": "noninteractive",
+    "PATH": "/usr/sbin:/usr/bin:/sbin:/bin",
+    "LC_ALL": "C",
+}
+
+
+def _fail(msg: str, code: int = 2) -> "None":
+    sys.stderr.write(f"homedeck-apt: {msg}\n")
+    sys.stderr.flush()
+    raise SystemExit(code)
+
+
+def main(argv: "list[str]") -> int:
+    if not argv:
+        _fail("usage: homedeck-apt <update|install|remove|upgrade> [package ...]")
+    verb, pkgs = argv[0], argv[1:]
+    if verb not in _ALLOWED:
+        _fail(f"unknown verb: {verb!r}")
+    if verb == "update":
+        if pkgs:
+            _fail("update takes no packages")
+    else:
+        if not pkgs:
+            _fail(f"{verb} requires at least one package")
+        for p in pkgs:
+            if not _NAME_RE.match(p):
+                _fail(f"invalid package name: {p!r}")
+
+    if verb == "update":
+        cmd = ["apt-get", "update"]
+    elif verb == "install":
+        cmd = ["apt-get", "install", "-y", "--", *pkgs]
+    elif verb == "remove":
+        cmd = ["apt-get", "remove", "-y", "--", *pkgs]
+    else:  # upgrade — only bump the named, already-installed packages
+        cmd = ["apt-get", "install", "-y", "--only-upgrade", "--", *pkgs]
+
+    sys.stdout.write(f"$ {' '.join(cmd)}\n")
+    sys.stdout.flush()
+    proc = subprocess.Popen(
+        cmd, env=_ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, text=True
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+    return proc.wait()
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        raise SystemExit(130)
