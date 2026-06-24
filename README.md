@@ -1,4 +1,4 @@
-# HomeDeck 🛰️
+# HomeDeck WIP 🛰️
 
 A self-hosted web dashboard to manage a homelab from the browser — Docker
 containers, host apps, system health, and an app-store-style installer for both
