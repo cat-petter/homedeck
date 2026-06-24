@@ -37,3 +37,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# --- Local-only project notes (internal host/dev context, not for a public repo) ---
+CLAUDE.md
