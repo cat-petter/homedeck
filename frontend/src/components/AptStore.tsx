@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type AptPackage, type AptStatus } from '../lib/api'
 import { AptPackageDrawer } from './AptPackageDrawer'
+import { AptRunModal } from './AptRunModal'
 import { InstallPasswordModal } from './InstallPasswordModal'
 import { SkeletonGrid } from './Skeleton'
 
@@ -18,8 +19,13 @@ export function AptStore() {
   const [selected, setSelected] = useState<string | null>(null)
   const [pwSet, setPwSet] = useState<boolean | null>(null)
   const [pwModal, setPwModal] = useState<'create' | 'change' | null>(null)
+  const [upgradeAll, setUpgradeAll] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const reload = () => setRefreshKey((n) => n + 1)
+  const refreshAll = () => {
+    api.aptStatus().then(setStatus).catch(() => {})
+    reload()
+  }
 
   useEffect(() => {
     api.aptStatus().then(setStatus).catch(() => {})
@@ -56,11 +62,22 @@ export function AptStore() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {status
-          ? `${status.installed.toLocaleString()} installed · ${status.upgradable} upgradable · ${status.total.toLocaleString()} available`
-          : 'Loading APT…'}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {status
+            ? `${status.installed.toLocaleString()} installed · ${status.upgradable} upgradable · ${status.total.toLocaleString()} available`
+            : 'Loading APT…'}
+        </p>
+        {status && status.upgradable > 0 && (
+          <button
+            type="button"
+            onClick={() => (pwSet === false ? setPwModal('create') : setUpgradeAll(true))}
+            className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500"
+          >
+            Upgrade all ({status.upgradable})
+          </button>
+        )}
+      </div>
 
       {pwSet === false ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
@@ -171,6 +188,13 @@ export function AptStore() {
         mode={pwModal ?? 'create'}
         onClose={() => setPwModal(null)}
         onDone={loadPwStatus}
+      />
+      <AptRunModal
+        open={upgradeAll}
+        verb="upgrade-all"
+        pkg=""
+        onClose={() => setUpgradeAll(false)}
+        onDone={refreshAll}
       />
     </div>
   )

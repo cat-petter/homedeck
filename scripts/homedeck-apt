@@ -14,14 +14,15 @@ names, in a clean environment, with output streamed live. It deliberately:
 Self-contained on purpose (no imports from the HomeDeck app) so its behaviour
 can't be influenced by the unprivileged service's code or environment.
 
-Usage: homedeck-apt <update|install|remove|upgrade> [package ...]
+Usage: homedeck-apt <update|install|remove|upgrade|upgrade-all> [package ...]
 """
 
 import re
 import subprocess
 import sys
 
-_ALLOWED = {"update", "install", "remove", "upgrade"}
+_ALLOWED = {"update", "install", "remove", "upgrade", "upgrade-all"}
+_NO_PKG_VERBS = {"update", "upgrade-all"}
 # Debian binary package name grammar (lowercase, must start alphanumeric).
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+._-]*$")
 _ENV = {
@@ -43,9 +44,9 @@ def main(argv: "list[str]") -> int:
     verb, pkgs = argv[0], argv[1:]
     if verb not in _ALLOWED:
         _fail(f"unknown verb: {verb!r}")
-    if verb == "update":
+    if verb in _NO_PKG_VERBS:
         if pkgs:
-            _fail("update takes no packages")
+            _fail(f"{verb} takes no packages")
     else:
         if not pkgs:
             _fail(f"{verb} requires at least one package")
@@ -55,6 +56,9 @@ def main(argv: "list[str]") -> int:
 
     if verb == "update":
         cmd = ["apt-get", "update"]
+    elif verb == "upgrade-all":
+        # Safe upgrade: never removes packages (unlike full-/dist-upgrade).
+        cmd = ["apt-get", "upgrade", "-y"]
     elif verb == "install":
         cmd = ["apt-get", "install", "-y", "--", *pkgs]
     elif verb == "remove":

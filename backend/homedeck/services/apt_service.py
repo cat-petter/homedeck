@@ -192,7 +192,8 @@ def package_detail(name: str) -> dict[str, Any] | None:
 
 # --- Privileged operations (via the scoped sudo helper) ---------------------
 
-_VERBS = {"update", "install", "remove", "upgrade"}
+_VERBS = {"update", "install", "remove", "upgrade", "upgrade-all"}
+_NO_PKG_VERBS = {"update", "upgrade-all"}
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+._-]*$")
 
 
@@ -203,9 +204,9 @@ class AptCommandError(ValueError):
 def validate(verb: str, packages: list[str]) -> None:
     if verb not in _VERBS:
         raise AptCommandError(f"Unknown action: {verb!r}")
-    if verb == "update":
+    if verb in _NO_PKG_VERBS:
         if packages:
-            raise AptCommandError("update takes no packages")
+            raise AptCommandError(f"{verb} takes no packages")
         return
     if not packages:
         raise AptCommandError(f"{verb} requires at least one package")
