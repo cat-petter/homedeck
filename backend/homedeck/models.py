@@ -142,6 +142,20 @@ class InstalledApp(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+class AppSetting(SQLModel, table=True):
+    """Generic key-value store for app-level settings/secrets.
+
+    Used now for the APT install-password hash; the planned Settings page will
+    use it for catalog sources, toggles, etc.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: str = Field(primary_key=True)
+    value: str = Field(default="")
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class MetricSample(SQLModel, table=True):
     """A periodic host-metrics snapshot for the ~24h history charts."""
 

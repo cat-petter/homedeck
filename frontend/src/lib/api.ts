@@ -675,5 +675,18 @@ export const api = {
   },
   aptPackage: (name: string) =>
     request<AptPackageDetail>(`/api/apt/packages/${encodeURIComponent(name)}`),
+
+  // Install password (gates privileged package operations)
+  installPasswordStatus: () => request<{ set: boolean }>('/api/install-password/status'),
+  setInstallPassword: (password: string, current_password?: string) =>
+    request<{ set: boolean }>('/api/install-password', {
+      method: 'POST',
+      body: JSON.stringify({ password, current_password: current_password ?? null }),
+    }),
+  verifyInstallPassword: (password: string) =>
+    request<{ ok: boolean }>('/api/install-password/verify', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 }
 

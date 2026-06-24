@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type AptPackage, type AptStatus } from '../lib/api'
 import { AptPackageDrawer } from './AptPackageDrawer'
+import { InstallPasswordModal } from './InstallPasswordModal'
 
 type Filter = 'installed' | 'upgradable' | 'all'
 
@@ -14,9 +15,16 @@ export function AptStore() {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [pwSet, setPwSet] = useState<boolean | null>(null)
+  const [pwModal, setPwModal] = useState<'create' | 'change' | null>(null)
 
   useEffect(() => {
     api.aptStatus().then(setStatus).catch(() => {})
+  }, [])
+
+  const loadPwStatus = () => api.installPasswordStatus().then((r) => setPwSet(r.set)).catch(() => {})
+  useEffect(() => {
+    loadPwStatus()
   }, [])
 
   useEffect(() => {
@@ -50,6 +58,27 @@ export function AptStore() {
           ? `${status.installed.toLocaleString()} installed · ${status.upgradable} upgradable · ${status.total.toLocaleString()} available`
           : 'Loading APT…'}
       </p>
+
+      {pwSet === false ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+          <span>Set an install password to enable installing, removing &amp; upgrading packages.</span>
+          <button
+            type="button"
+            onClick={() => setPwModal('create')}
+            className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
+          >
+            Set password
+          </button>
+        </div>
+      ) : pwSet === true ? (
+        <button
+          type="button"
+          onClick={() => setPwModal('change')}
+          className="text-xs font-medium text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400"
+        >
+          Change install password
+        </button>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <input
@@ -124,6 +153,12 @@ export function AptStore() {
       )}
 
       <AptPackageDrawer name={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <InstallPasswordModal
+        open={pwModal !== null}
+        mode={pwModal ?? 'create'}
+        onClose={() => setPwModal(null)}
+        onDone={loadPwStatus}
+      />
     </div>
   )
 }
